@@ -1,26 +1,115 @@
 @import "tailwindcss";
 
+/* ── Thème par défaut : Light Blue ── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-base:        #cfd4d9;
+  --bg-from:        #eef1f4;
+  --bg-via:         #dfe3e8;
+  --bg-to:          #cfd4d9;
+  --nav-bg:         rgba(255,255,255,0.4);
+  --nav-border:     rgba(255,255,255,0.4);
+  --card-bg:        rgba(255,255,255,0.6);
+  --card-border:    rgba(255,255,255,0.8);
+  --card-bg-active: rgba(255,255,255,0.9);
+  --text-primary:   #1e293b;
+  --text-secondary: #64748b;
+  --text-muted:     #94a3b8;
+  --accent:         #17179C;
+  --accent-light:   rgba(23,23,156,0.1);
+  --shadow:         rgba(0,0,0,0.06);
+}
+
+/* ── Thème Silver Dark ── */
+:root[data-theme="silver"] {
+  --bg-base:        #1a1a2e;
+  --bg-from:        #16213e;
+  --bg-via:         #1a1a2e;
+  --bg-to:          #0f0f1a;
+  --nav-bg:         rgba(255,255,255,0.05);
+  --nav-border:     rgba(255,255,255,0.08);
+  --card-bg:        rgba(255,255,255,0.06);
+  --card-border:    rgba(255,255,255,0.10);
+  --card-bg-active: rgba(255,255,255,0.10);
+  --text-primary:   #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted:     #475569;
+  --accent:         #818cf8;
+  --accent-light:   rgba(129,140,248,0.15);
+  --shadow:         rgba(0,0,0,0.4);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg-base);
+  --color-foreground: var(--text-primary);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: Arial, Helvetica, sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Ajoute ça à la fin de globals.css */
+
+.theme-bg {
+  background: linear-gradient(to bottom, var(--bg-from), var(--bg-via), var(--bg-to));
+}
+
+.theme-card {
+  background: var(--card-bg);
+  border-color: var(--card-border);
+}
+
+.theme-card-active {
+  background: var(--card-bg-active);
+}
+
+.theme-nav {
+  background: var(--nav-bg);
+  border-color: var(--nav-border);
+}
+
+.theme-text {
+  color: var(--text-primary);
+}
+
+.theme-text-secondary {
+  color: var(--text-secondary);
+}
+
+.theme-text-muted {
+  color: var(--text-muted);
+}
+
+.theme-accent {
+  color: var(--accent);
+}
+
+.theme-accent-bg {
+  background: var(--accent);
+}
+
+.theme-accent-light {
+  background: var(--accent-light);
+}
+
+
+:root[data-theme="gold"] {
+  --bg-base:        #0f0c05;
+  --bg-from:        #1a1508;
+  --bg-via:         #12100a;
+  --bg-to:          #0a0805;
+  --nav-bg:         rgba(212,175,55,0.08);
+  --nav-border:     rgba(212,175,55,0.15);
+  --card-bg:        rgba(212,175,55,0.07);
+  --card-border:    rgba(212,175,55,0.18);
+  --card-bg-active: rgba(212,175,55,0.12);
+  --text-primary:   #f5e6b8;
+  --text-secondary: #c9a84c;
+  --text-muted:     #7a6535;
+  --accent:         #d4af37;
+  --accent-light:   rgba(212,175,55,0.15);
+  --shadow:         rgba(0,0,0,0.6);
 }

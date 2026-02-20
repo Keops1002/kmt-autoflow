@@ -1,187 +1,251 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { 
-  DndContext, 
-  closestCorners, 
-  DragEndEvent, 
-  DragOverlay, 
-  PointerSensor, 
-  useSensor, 
-  useSensors,
+import {
+  DndContext, DragEndEvent, DragOverlay,
+  MouseSensor, TouchSensor,
+  useSensor, useSensors, closestCorners,
   defaultDropAnimationSideEffects,
-  TouchSensor,
-  MouseSensor
 } from "@dnd-kit/core";
-import { getPlanningData, moveDossierToDate } from "@/lib/api/planning";
-import DayColumn from "./DayColumn";
-import PlanningBar from "./PlanningBar";
-import { ChevronLeft, ChevronRight, CalendarDays, Loader2, GripHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+
+import {
+  getPlanningData, moveDossierToDate, scheduleDossier,
+  clearPlanning, addDays, daysBetween,
+  PlanningBar, UnplannedDossier,
+} from "@/lib/api/planning";
+
+import { isoDate, todayIso, getInitialDayIndex, DAY_LETTERS } from "./week/weekHelpers";
+import DroppableDay    from "./week/DroppableDay";
+import PlanningCard    from "./week/PlanningCard";
+import WeekEditModal   from "./week/WeekEditModal";
+import UnplannedDrawer from "./week/UnplannedDrawer";
 
 export default function WeekView() {
-  const [loading, setLoading] = useState(true);
+  const [loading,    setLoading]    = useState(true);
   const [weekOffset, setWeekOffset] = useState(0);
-  const [weekDays, setWeekDays] = useState<Date[]>([]);
-  const [bars, setBars] = useState<any[]>([]);
-  const [unplanned, setUnplanned] = useState<any[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [weekDays,   setWeekDays]   = useState<Date[]>([]);
+  const [bars,       setBars]       = useState<PlanningBar[]>([]);
+  const [unplanned,  setUnplanned]  = useState<UnplannedDossier[]>([]);
+  const [activeId,   setActiveId]   = useState<string | null>(null);
+  const [editingBar, setEditingBar] = useState<PlanningBar | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [dayIndex,   setDayIndex]   = useState(getInitialDayIndex);
 
-  // FIX: Définition stable des sensors pour éviter l'erreur "Order of Hooks"
   const sensors = useSensors(
-    useSensor(MouseSensor, { 
-      activationConstraint: { distance: 10 } 
-    }),
-    useSensor(TouchSensor, { 
-      activationConstraint: { delay: 250, tolerance: 5 } 
-    })
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
   );
 
-  useEffect(() => { 
-    loadData(); 
-  }, [weekOffset]);
+  useEffect(() => { loadData(); }, [weekOffset]);
 
   async function loadData() {
     setLoading(true);
     try {
       const res = await getPlanningData(weekOffset);
       setWeekDays(res.weekDays);
-      setBars(res.bars || []);
-      setUnplanned(res.unplanned || []);
-    } catch (e) { 
-      console.error(e); 
-    } finally { 
-      setLoading(false); 
+      setBars(res.bars);
+      setUnplanned(res.unplanned);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
   }
 
-  const handleDragEnd = async (e: DragEndEvent) => {
+  async function handleDragEnd(e: DragEndEvent) {
     setActiveId(null);
     if (!e.over) return;
+    const rawId     = String(e.active.id);
+    const newDate   = String(e.over.id);
+    const type      = rawId.startsWith("unplanned-") ? "unplanned" : "planned";
+    const dossierId = rawId.replace(/^(unplanned-|planned-)/, "");
 
-    const dossierId = String(e.active.id);
-    const newDate = String(e.over.id);
-
-    // Optimistic Update
-    const movedDossier = unplanned.find(d => d.id === dossierId) || 
-                         bars.find(b => b.dossier_id === dossierId)?.dossiers;
-
-    // Mise à jour de l'état local pour fluidité immédiate
-    setBars(prev => {
-      const clean = prev.filter(b => b.dossier_id !== dossierId);
-      return [...clean, { dossier_id: dossierId, start_date: newDate, dossiers: movedDossier }];
-    });
-    
-    setUnplanned(prev => prev.filter(d => d.id !== dossierId));
-
-    // Appel API
-    await moveDossierToDate(dossierId, newDate);
-  };
-
-  const dropAnimation = {
-    sideEffects: defaultDropAnimationSideEffects({
-      styles: {
-        active: {
-          opacity: '0.4',
+    if (type === "unplanned") {
+      const dossier = unplanned.find((d) => d.id === dossierId);
+      if (!dossier) return;
+      const newBar: PlanningBar = {
+        dossier_id: dossierId, start_date: newDate, end_date: newDate,
+        dossiers: {
+          id: dossier.id, problem: dossier.problem,
+          status: dossier.status, estimated_price: dossier.estimated_price,
+          vehicles: dossier.vehicles ?? null,
         },
-      },
-    }),
-  };
+      };
+      setBars((p) => [...p, newBar]);
+      setUnplanned((p) => p.filter((d) => d.id !== dossierId));
+      await scheduleDossier(dossierId, newDate, newDate);
+    } else {
+      const existing = bars.find((b) => b.dossier_id === dossierId);
+      if (!existing) return;
+      const duration = daysBetween(existing.start_date, existing.end_date);
+      const newEnd   = addDays(newDate, duration);
+      setBars((p) => p.map((b) =>
+        b.dossier_id === dossierId ? { ...b, start_date: newDate, end_date: newEnd } : b
+      ));
+      await moveDossierToDate(dossierId, newDate);
+    }
+  }
+
+  async function handleRemove(dossierId: string) {
+    const bar = bars.find((b) => b.dossier_id === dossierId);
+    if (!bar) return;
+    setBars((p) => p.filter((b) => b.dossier_id !== dossierId));
+    setUnplanned((p) => [...p, {
+      id: bar.dossier_id, problem: bar.dossiers.problem,
+      status: bar.dossiers.status, estimated_price: bar.dossiers.estimated_price,
+      vehicles: bar.dossiers.vehicles,
+    }]);
+    await clearPlanning(dossierId);
+  }
+
+  async function handleEditSave(start: string, end: string) {
+    if (!editingBar) return;
+    setBars((p) => p.map((b) =>
+      b.dossier_id === editingBar.dossier_id ? { ...b, start_date: start, end_date: end } : b
+    ));
+    await scheduleDossier(editingBar.dossier_id, start, end);
+  }
+
+  function weekLabel() {
+    if (!weekDays.length) return "";
+    const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+    return `${weekDays[0].toLocaleDateString("fr-FR", opts)} – ${weekDays[6].toLocaleDateString("fr-FR", opts)}`;
+  }
+
+  const firstDayOfWeek = weekDays[0] ? isoDate(weekDays[0]) : "";
+  const currentDate    = weekDays[dayIndex];
+  const currentDateId  = currentDate ? isoDate(currentDate) : "";
+  const dayBars        = bars.filter((b) => {
+    const eff = b.start_date < firstDayOfWeek ? firstDayOfWeek : b.start_date;
+    return eff === currentDateId;
+  });
 
   return (
-    <DndContext 
-      sensors={sensors} 
-      collisionDetection={closestCorners} 
-      onDragStart={(e) => setActiveId(String(e.active.id))} 
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={(e) => setActiveId(String(e.active.id))}
       onDragEnd={handleDragEnd}
     >
-      
-      {/* CONTAINER GLOBAL */}
-      <div className="flex flex-col gap-4 pb-48 min-h-screen relative">
-        
-        {/* --- HEADER NAVIGATION --- */}
-        <div className="sticky top-2 z-30 mx-2">
-          <div className="flex items-center justify-between bg-white/80 backdrop-blur-xl p-2 rounded-2xl border border-white/50 shadow-sm">
-            <div className="flex gap-1">
-              <button onClick={() => setWeekOffset(prev => prev - 1)} className="p-2 bg-white rounded-xl shadow-sm active:scale-95 transition-all text-slate-600">
-                <ChevronLeft size={20} />
-              </button>
-              <button onClick={() => setWeekOffset(0)} className="px-4 py-2 bg-slate-800 text-white rounded-xl shadow-md font-bold text-xs uppercase tracking-wider active:scale-95 transition-all">
-                Aujourd'hui
-              </button>
-              <button onClick={() => setWeekOffset(prev => prev + 1)} className="p-2 bg-white rounded-xl shadow-sm active:scale-95 transition-all text-slate-600">
-                <ChevronRight size={20} />
-              </button>
-            </div>
-            <div className="hidden xs:flex items-center gap-2 px-3 text-slate-500 font-bold text-[10px] uppercase tracking-widest">
-              <CalendarDays size={14} />
-              {weekDays[0]?.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
-            </div>
-          </div>
+      <div className="flex flex-col gap-3 pb-32">
+
+        {/* Navigation semaine */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setWeekOffset((p) => p - 1)}
+            className="w-10 h-10 rounded-2xl shadow-sm border flex items-center justify-center active:scale-90 transition-all shrink-0"
+            style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-secondary)" }}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            onClick={() => { setWeekOffset(0); setDayIndex(getInitialDayIndex()); }}
+            className="flex-1 h-10 rounded-2xl font-bold text-sm transition-all border shadow-sm"
+            style={{
+              background: weekOffset === 0 ? "var(--accent)" : "var(--card-bg)",
+              color: weekOffset === 0 ? "#ffffff" : "var(--text-secondary)",
+              borderColor: "var(--card-border)",
+            }}
+          >
+            {weekOffset === 0 ? "Cette semaine" : weekLabel()}
+          </button>
+          <button
+            onClick={() => setWeekOffset((p) => p + 1)}
+            className="w-10 h-10 rounded-2xl shadow-sm border flex items-center justify-center active:scale-90 transition-all shrink-0"
+            style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-secondary)" }}
+          >
+            <ChevronRight size={18} />
+          </button>
         </div>
 
-        {/* --- GRILLE SEMAINE --- */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center h-64 gap-3">
-            <Loader2 className="animate-spin text-blue-600" size={32} />
-          </div>
-        ) : (
-          <div className="flex overflow-x-auto gap-3 px-2 pb-8 pt-2 no-scrollbar snap-x scroll-pl-2">
-            {weekDays.map((date) => {
-              const dateId = date.toISOString().slice(0, 10);
+        {/* Sélecteur de jours */}
+        {!loading && weekDays.length > 0 && (
+          <div className="grid grid-cols-7 gap-1">
+            {weekDays.map((date, idx) => {
+              const isSelected = idx === dayIndex;
+              const isToday    = isoDate(date) === todayIso();
+              const hasBars    = bars.some((b) => {
+                const eff = b.start_date < firstDayOfWeek ? firstDayOfWeek : b.start_date;
+                return eff === isoDate(date);
+              });
               return (
-                <div key={dateId} className="snap-start pt-2">
-                  <DayColumn id={dateId} date={date}>
-                    {bars.filter(b => b.start_date === dateId).map(bar => (
-                      <PlanningBar key={bar.dossier_id} bar={bar} />
-                    ))}
-                  </DayColumn>
-                </div>
+                <button
+                  key={isoDate(date)}
+                  onClick={() => setDayIndex(idx)}
+                  className="flex flex-col items-center py-2 rounded-2xl transition-all"
+                  style={{
+                    background: isSelected
+                      ? "var(--accent)"
+                      : isToday
+                      ? "var(--accent-light)"
+                      : "var(--card-bg)",
+                  }}
+                >
+                  <span className="text-[9px] font-black uppercase tracking-wider"
+                    style={{ color: isSelected ? "rgba(255,255,255,0.7)" : "var(--text-muted)" }}>
+                    {DAY_LETTERS[date.getDay()]}
+                  </span>
+                  <span className="text-base font-black leading-tight"
+                    style={{
+                      color: isSelected ? "#ffffff" : isToday ? "var(--accent)" : "var(--text-primary)",
+                    }}>
+                    {date.getDate()}
+                  </span>
+                  <span className="w-1 h-1 rounded-full mt-0.5"
+                    style={{
+                      background: hasBars
+                        ? isSelected ? "#ffffff" : "var(--accent)"
+                        : "transparent",
+                    }}
+                  />
+                </button>
               );
             })}
           </div>
         )}
-      </div>
 
-      {/* --- DOCK FLOTTANT (FIXE EN BAS) --- */}
-      <div className="fixed bottom-[calc(80px+env(safe-area-inset-bottom))] left-0 right-0 z-50 px-4 pointer-events-none flex justify-center">
-        
-        <div className="pointer-events-auto w-full max-w-[400px] bg-slate-900/95 backdrop-blur-2xl rounded-[2rem] p-4 shadow-2xl border border-white/10 ring-1 ring-black/40 transition-transform duration-300 ease-out hover:scale-[1.02]">
-          
-          <div className="flex justify-between items-center mb-3 px-2">
-            <h3 className="text-white font-bold text-[11px] uppercase tracking-widest flex items-center gap-2">
-              <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(99,102,241,0.5)]"></span>
-              À Planifier <span className="opacity-50">({unplanned.length})</span>
-            </h3>
-            <GripHorizontal className="text-slate-600" size={16} />
+        {/* Vue du jour */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-64 gap-3">
+            <Loader2 className="animate-spin" size={28} style={{ color: "var(--accent)" }} />
+            <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>Chargement...</p>
           </div>
-
-          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar snap-x cursor-grab active:cursor-grabbing">
-            {unplanned.length > 0 ? (
-              unplanned.map((d) => (
-                <div key={d.id} className="min-w-[160px] max-w-[160px] snap-center transform transition-all active:scale-95">
-                  <PlanningBar bar={{ dossier_id: d.id, dossiers: d, isUnplanned: true }} />
-                </div>
+        ) : currentDate ? (
+          <DroppableDay dateId={currentDateId} date={currentDate}>
+            {dayBars.length > 0 ? (
+              dayBars.map((bar) => (
+                <PlanningCard key={bar.dossier_id} bar={bar} onEdit={setEditingBar} onRemove={handleRemove} />
               ))
             ) : (
-              <div className="w-full py-4 text-center">
-                <span className="text-slate-500 text-[10px] font-medium italic">Aucun dossier en attente ✨</span>
-              </div>
+              <p className="text-center text-sm py-8 italic" style={{ color: "var(--text-muted)" }}>
+                Aucun dossier ce jour
+              </p>
             )}
-          </div>
-        </div>
+          </DroppableDay>
+        ) : null}
       </div>
 
-      {/* --- OVERLAY DU DRAG --- */}
-      <DragOverlay dropAnimation={dropAnimation}>
+      {/* Drawer */}
+      <UnplannedDrawer
+        unplanned={unplanned}
+        open={drawerOpen}
+        onToggle={() => setDrawerOpen((p) => !p)}
+      />
+
+      {/* Drag overlay */}
+      <DragOverlay dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: "0.3" } } }) }}>
         {activeId ? (
-          <div className="rotate-3 scale-105 cursor-grabbing">
-             <div className="bg-indigo-600 text-white px-4 py-3 rounded-xl font-bold text-xs shadow-2xl border border-white/20 flex items-center gap-2">
-               <GripHorizontal size={14} /> Déplacement...
-             </div>
+          <div className="rotate-2 scale-105 text-white px-4 py-3 rounded-2xl font-bold text-xs shadow-2xl"
+            style={{ background: "var(--accent)" }}>
+            Déplacement…
           </div>
         ) : null}
       </DragOverlay>
 
+      {editingBar && (
+        <WeekEditModal bar={editingBar} onSave={handleEditSave} onClose={() => setEditingBar(null)} />
+      )}
     </DndContext>
   );
 }

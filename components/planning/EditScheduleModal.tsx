@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { setPlanningRange, clearPlanning } from "@/lib/api/planning";
+import { scheduleDossier, clearPlanning } from "@/lib/api/planning";
 
 export default function EditScheduleModal({
   bar,
@@ -11,14 +11,14 @@ export default function EditScheduleModal({
   onClose: () => void;
 }) {
   const [start, setStart] = useState(
-    bar.start.toISOString().slice(0, 10)
+    bar.start_date ?? bar.start?.toISOString().slice(0, 10) ?? ""
   );
   const [end, setEnd] = useState(
-    bar.end.toISOString().slice(0, 10)
+    bar.end_date ?? bar.end?.toISOString().slice(0, 10) ?? ""
   );
 
   const save = async () => {
-    await setPlanningRange(bar.dossier_id, start, end);
+    await scheduleDossier(bar.dossier_id, start, end);
     onClose();
   };
 
@@ -53,7 +53,6 @@ export default function EditScheduleModal({
           >
             Supprimer
           </button>
-
           <button
             className="px-3 py-2 bg-blue-600 text-white rounded"
             onClick={save}

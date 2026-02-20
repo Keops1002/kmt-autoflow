@@ -1,45 +1,29 @@
 "use client";
 
-/* =========================================================
-   DASHBOARD HOME – ACCUEIL PRINCIPAL
-   Version prête Supabase (via mock)
-========================================================= */
+import AppContainer   from "@/components/layout/AppContainer";
+import HeroBanner     from "@/components/home/HeroBanner";
+import QuickActions   from "@/components/home/QuickActions";
+import PlanningWidget from "@/components/home/PlanningWidget";
+import StatsWidget    from "@/components/home/StatsWidget";
+import AlertesWidget  from "@/components/home/AlertesWidget";
+import KMTSplash      from "@/components/home/KMTSplash";
 
-import AppContainer from "@/components/layout/AppContainer";
-import Header from "@/components/dashboard/Header";
-import DateSelector from "@/components/dashboard/DateSelector";
-import DossierCard from "@/components/dashboard/DossierCard";
-import AlertsPanel from "@/components/dashboard/AlertsPanel";
-
-import { dossiersMock } from "@/lib/mockData";
-
-export default function DashboardHome() {
+export default function HomePage() {
   return (
     <AppContainer>
+      <div className="relative">
+        <div className="px-4 pt-6 pb-32 space-y-4" style={{ position: "relative", zIndex: 1 }}>
 
-      {/* ================= HEADER ================= */}
-      <Header />
+          {/* KMT juste sous le bouton Réglages */}
+          <KMTSplash />
 
-      {/* ================= DATE SELECTOR ================= */}
-      <DateSelector />
-
-      {/* ================= DOSSIERS LIST ================= */}
-      <div className="px-8 space-y-6 flex-1 overflow-y-auto pb-40">
-
-        {dossiersMock
-          .filter((dossier) => dossier.garage_id === "atlas_01")
-          .map((dossier) => (
-            <DossierCard
-              key={dossier.id}
-              dossier={dossier}
-            />
-        ))}
-
-        {/* ================= ALERTS PANEL ================= */}
-        <AlertsPanel />
-
+          <HeroBanner />
+          <QuickActions />
+          <PlanningWidget />
+          <StatsWidget />
+          <AlertesWidget />
+        </div>
       </div>
-
     </AppContainer>
   );
 }

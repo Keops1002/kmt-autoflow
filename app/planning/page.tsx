@@ -2,47 +2,47 @@
 
 import { useState } from "react";
 import AppContainer from "@/components/layout/AppContainer";
-import PlanningCalendar from "@/components/planning/PlanningCalendar";
+import WeekView from "@/components/planning/WeekView";
+import MonthView from "@/components/planning/MonthView";
 
 export default function PlanningPage() {
   const [mode, setMode] = useState<"week" | "month">("week");
 
   return (
     <AppContainer>
-      <div className="px-8 pt-12 pb-40 space-y-6">
-        {/* TITRE + Switch */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-extrabold text-slate-800">
+      <div className="px-4 pt-10 pb-4 flex flex-col gap-4">
+
+        <div className="flex items-center justify-between px-2">
+          <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>
             Planning
           </h1>
 
-          <div className="flex gap-3">
+          <div className="flex p-1 rounded-2xl border shadow-sm"
+            style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}>
             <button
-              className={`px-4 py-2 rounded-xl font-semibold transition ${
-                mode === "week"
-                  ? "bg-[#17179C] text-white"
-                  : "bg-white border border-slate-300 text-slate-700"
-              }`}
               onClick={() => setMode("week")}
+              className="px-4 py-1.5 rounded-xl font-bold text-sm transition-all"
+              style={{
+                background: mode === "week" ? "var(--accent)" : "transparent",
+                color: mode === "week" ? "#ffffff" : "var(--text-muted)",
+              }}
             >
               Semaine
             </button>
-
             <button
-              className={`px-4 py-2 rounded-xl font-semibold transition ${
-                mode === "month"
-                  ? "bg-[#17179C] text-white"
-                  : "bg-white border border-slate-300 text-slate-700"
-              }`}
               onClick={() => setMode("month")}
+              className="px-4 py-1.5 rounded-xl font-bold text-sm transition-all"
+              style={{
+                background: mode === "month" ? "var(--accent)" : "transparent",
+                color: mode === "month" ? "#ffffff" : "var(--text-muted)",
+              }}
             >
               Mois
             </button>
           </div>
         </div>
 
-        {/* CALENDAR PRINCIPAL */}
-        <PlanningCalendar />
+        {mode === "week" ? <WeekView /> : <MonthView />}
 
       </div>
     </AppContainer>
