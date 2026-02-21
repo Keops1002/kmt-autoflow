@@ -14,37 +14,37 @@ export default function AppContainer({ children }: { children: React.ReactNode }
     if (saved) applyTheme(saved);
   }, []);
 
-function applyTheme(t: Theme) {
-  setTheme(t);
-  localStorage.setItem("theme", t);
-  if (t === "light") {
-    document.documentElement.removeAttribute("data-theme");
-  } else {
-    document.documentElement.setAttribute("data-theme", t);
+  function applyTheme(t: Theme) {
+    setTheme(t);
+    localStorage.setItem("theme", t);
+    if (t === "light") {
+      document.documentElement.removeAttribute("data-theme");
+    } else {
+      document.documentElement.setAttribute("data-theme", t);
+    }
   }
-}
 
   return (
-  <div
-    className="flex justify-center min-h-screen"
-    style={{ background: "var(--bg-base)" }}
-  >
     <div
-      className="w-full max-w-md min-h-screen relative flex flex-col"
-      style={{
-        background: `linear-gradient(to bottom, var(--bg-from), var(--bg-via), var(--bg-to))`
-      }}
+      className="flex justify-center min-h-screen"
+      style={{ background: "var(--bg-base)" }}
     >
-      <TopBar currentTheme={theme} onThemeChange={applyTheme} />
-      <div className="flex-1 overflow-y-auto pb-24">
-        {children}
-      </div>
-      <div className="fixed bottom-0 left-0 right-0 flex justify-center z-50">
-        <div className="w-full max-w-md">
-          <BottomNav />
+      <div
+        className="w-full max-w-md min-h-screen relative flex flex-col"
+        style={{
+          background: `linear-gradient(to bottom, var(--bg-from), var(--bg-via), var(--bg-to))`
+        }}
+      >
+        <TopBar currentTheme={theme} onThemeChange={applyTheme} />
+        <div className="flex-1 pb-24">
+          {children}
+        </div>
+        <div className="fixed bottom-0 left-0 right-0 flex justify-center z-50">
+          <div className="w-full max-w-md">
+            <BottomNav />
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
 }

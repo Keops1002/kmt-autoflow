@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FileText, ChevronDown, ArrowRight, Loader2, Pencil, X, Download } from "lucide-react";
+import { FileText, ChevronDown, ArrowRight, Loader2, Pencil, X, Download, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Devis, DevisLigne } from "./devis.types";
 import { getNextNumero } from "./devis.types";
 import DevisBottomSheet from "./DevisBottomSheet";
-import { generateAndDownloadPDF } from "@/components/facture/useGeneratePDF";
+import { generateAndDownloadPDF, generatePDFBlob } from "@/components/facture/useGeneratePDF";
 
 interface Props {
   devis: Devis;
@@ -34,10 +34,13 @@ export default function DevisCard({ devis, dossierId, clientName, onUpdate, onDe
   const [factureId, setFactureId]         = useState<string | null>(
     (devis as any).facture_id || null
   );
+  const [sendingDevis,   setSendingDevis]   = useState(false);
+  const [sendingFacture, setSendingFacture] = useState(false);
+  const [mailSent,       setMailSent]       = useState(false);
+  const [mailError,      setMailError]      = useState<string | null>(null);
 
   const cfg = STATUS_CONFIG[devis.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.draft;
 
-  // Si pas de facture_id en prop, vérifie en base
   useEffect(() => {
     if (devis.status === "signed" && !factureId) {
       supabase
@@ -95,12 +98,10 @@ export default function DevisCard({ devis, dossierId, clientName, onUpdate, onDe
         .single();
 
       if (!error && newFacture) {
-        // Persiste facture_id dans la table devis
         await supabase
           .from("devis")
           .update({ facture_id: newFacture.id })
           .eq("id", devis.id);
-
         setFactureId(newFacture.id);
         onUpdate({ ...devis, facture_id: newFacture.id } as any);
       }
@@ -121,6 +122,102 @@ export default function DevisCard({ devis, dossierId, clientName, onUpdate, onDe
       console.error(err);
     } finally {
       setGeneratingPDF(false);
+    }
+  }
+
+  async function blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string).split(",")[1]);
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function handleSendDevisMail(e: React.MouseEvent) {
+    e.stopPropagation();
+    setSendingDevis(true);
+    setMailError(null);
+    try {
+      const { generateDevisBlob } = await import("@/components/facture/useGeneratePDF");
+      const { blob, numero, clientEmail } = await generateDevisBlob(devis.id);
+
+      if (!clientEmail) {
+        setMailError("Aucun email client renseigné");
+        return;
+      }
+
+      const webhookUrl = process.env.NEXT_PUBLIC_N8N_MAIL_WEBHOOK || "";
+      if (!webhookUrl) {
+        setMailError("Webhook N8N non configuré");
+        return;
+      }
+
+      const base64 = await blobToBase64(blob);
+
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type:        "devis",
+          to:          clientEmail,
+          subject:     `Votre devis ${numero}`,
+          numero,
+          pdf_base64:  base64,
+          client_name: clientName,
+        }),
+      });
+
+      setMailSent(true);
+      setTimeout(() => setMailSent(false), 3000);
+    } catch (err) {
+      console.error(err);
+      setMailError("Erreur lors de l'envoi");
+    } finally {
+      setSendingDevis(false);
+    }
+  }
+
+  async function handleSendFactureMail(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!factureId) return;
+    setSendingFacture(true);
+    setMailError(null);
+    try {
+      const { blob, data } = await generatePDFBlob(factureId);
+
+      if (!data.client.email) {
+        setMailError("Aucun email client renseigné");
+        return;
+      }
+
+      const webhookUrl = process.env.NEXT_PUBLIC_N8N_MAIL_WEBHOOK || "";
+      if (!webhookUrl) {
+        setMailError("Webhook N8N non configuré");
+        return;
+      }
+
+      const base64 = await blobToBase64(blob);
+
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type:        "facture",
+          to:          data.client.email,
+          subject:     `Votre facture ${data.numero}`,
+          numero:      data.numero,
+          pdf_base64:  base64,
+          client_name: data.client.name,
+        }),
+      });
+
+      setMailSent(true);
+      setTimeout(() => setMailSent(false), 3000);
+    } catch (err) {
+      console.error(err);
+      setMailError("Erreur lors de l'envoi");
+    } finally {
+      setSendingFacture(false);
     }
   }
 
@@ -191,7 +288,7 @@ export default function DevisCard({ devis, dossierId, clientName, onUpdate, onDe
 
         {/* Contenu expandé */}
         <div className={`overflow-hidden transition-all duration-300 ${
-          expanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+          expanded ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
         }`}>
           <div className="px-4 pb-4 space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="h-px" style={{ background: "var(--card-border)" }} />
@@ -239,7 +336,7 @@ export default function DevisCard({ devis, dossierId, clientName, onUpdate, onDe
               </div>
             )}
 
-            {/* Transformer en facture — seulement si pas encore facturé */}
+            {/* Transformer en facture */}
             {devis.status === "signed" && !factureId && (
               <button
                 onClick={handleConvertFacture} disabled={converting}
@@ -252,7 +349,7 @@ export default function DevisCard({ devis, dossierId, clientName, onUpdate, onDe
               </button>
             )}
 
-            {/* Télécharger PDF — seulement si facture existe */}
+            {/* Télécharger PDF facture */}
             {devis.status === "signed" && factureId && (
               <button
                 onClick={handleDownloadPDF} disabled={generatingPDF}
@@ -264,6 +361,42 @@ export default function DevisCard({ devis, dossierId, clientName, onUpdate, onDe
                 }
               </button>
             )}
+
+            {/* Envoyer devis par mail */}
+            {(devis.status === "signed" || devis.status === "sent") && (
+              <button
+                onClick={handleSendDevisMail} disabled={sendingDevis}
+                className="w-full py-3 rounded-2xl font-black text-xs text-white flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-40 transition-all"
+                style={{ background: "#3b82f6" }}>
+                {sendingDevis
+                  ? <Loader2 size={13} className="animate-spin" />
+                  : mailSent
+                    ? "✓ Envoyé !"
+                    : <><Mail size={13} /> Envoyer le devis par mail</>
+                }
+              </button>
+            )}
+
+            {/* Envoyer facture par mail */}
+            {devis.status === "signed" && factureId && (
+              <button
+                onClick={handleSendFactureMail} disabled={sendingFacture}
+                className="w-full py-3 rounded-2xl font-black text-xs text-white flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-40 transition-all"
+                style={{ background: "#8b5cf6" }}>
+                {sendingFacture
+                  ? <Loader2 size={13} className="animate-spin" />
+                  : mailSent
+                    ? "✓ Envoyé !"
+                    : <><Mail size={13} /> Envoyer la facture par mail</>
+                }
+              </button>
+            )}
+
+            {/* Erreur mail */}
+            {mailError && (
+              <p className="text-xs text-red-500 text-center font-medium">{mailError}</p>
+            )}
+
           </div>
         </div>
       </div>
@@ -283,68 +416,4 @@ export default function DevisCard({ devis, dossierId, clientName, onUpdate, onDe
       )}
     </>
   );
-}
-
-export async function generateDevisBlob(devisId: string): Promise<{ blob: Blob; numero: string; clientEmail?: string }> {
-  const { data: devis, error } = await supabase
-    .from("devis")
-    .select(`
-      id, numero, created_at, tva_enabled, signature_data, total_ht, total_tva, total_ttc,
-      devis_lignes ( label, quantity, unit_price, tva ),
-      dossiers:dossier_id (
-        vehicles:vehicle_id (
-          brand, model, plate, km,
-          clients:client_id ( name, phone, email )
-        )
-      )
-    `)
-    .eq("id", devisId)
-    .single();
-
-  if (error || !devis) throw new Error("Devis introuvable");
-
-  const { data: garage } = await supabase
-    .from("garage_info").select("*").limit(1).single();
-
-  const d       = devis as any;
-  const vehicle = d.dossiers?.vehicles;
-  const client  = vehicle?.clients;
-
-  const data: FacturePDFData = {
-    numero:         d.numero,
-    created_at:     d.created_at,
-    status:         "devis",
-    total_ht:       d.total_ht,
-    total_tva:      d.total_tva,
-    total_ttc:      d.total_ttc,
-    tva_enabled:    d.tva_enabled ?? true,
-    lignes:         d.devis_lignes || [],
-    signature_data: d.signature_data,
-    client: {
-      name:  client?.name  || "Client inconnu",
-      phone: client?.phone,
-      email: client?.email,
-    },
-    vehicle: {
-      brand: vehicle?.brand || "",
-      model: vehicle?.model || "",
-      plate: vehicle?.plate,
-      km:    vehicle?.km,
-    },
-    garage: {
-      name:       garage?.name       || "Garage",
-      legal_form: garage?.legal_form,
-      address:    garage?.address,
-      city:       garage?.city,
-      phone:      garage?.phone,
-      email:      garage?.email,
-      siret:      garage?.siret,
-      tva_number: garage?.tva_number,
-      capital:    garage?.capital,
-    },
-  };
-
-  const doc  = generatePDFDoc(data);
-  const blob = doc.output("blob");
-  return { blob, numero: d.numero, clientEmail: client?.email };
 }

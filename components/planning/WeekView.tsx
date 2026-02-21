@@ -34,7 +34,9 @@ export default function WeekView() {
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 500, tolerance: 10 },
+    })
   );
 
   useEffect(() => { loadData(); }, [weekOffset]);
@@ -122,130 +124,133 @@ export default function WeekView() {
   });
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={(e) => setActiveId(String(e.active.id))}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="flex flex-col gap-3 pb-32">
+    <>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={(e) => setActiveId(String(e.active.id))}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="space-y-3">
 
-        {/* Navigation semaine */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setWeekOffset((p) => p - 1)}
-            className="w-10 h-10 rounded-2xl shadow-sm border flex items-center justify-center active:scale-90 transition-all shrink-0"
-            style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-secondary)" }}
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <button
-            onClick={() => { setWeekOffset(0); setDayIndex(getInitialDayIndex()); }}
-            className="flex-1 h-10 rounded-2xl font-bold text-sm transition-all border shadow-sm"
-            style={{
-              background: weekOffset === 0 ? "var(--accent)" : "var(--card-bg)",
-              color: weekOffset === 0 ? "#ffffff" : "var(--text-secondary)",
-              borderColor: "var(--card-border)",
-            }}
-          >
-            {weekOffset === 0 ? "Cette semaine" : weekLabel()}
-          </button>
-          <button
-            onClick={() => setWeekOffset((p) => p + 1)}
-            className="w-10 h-10 rounded-2xl shadow-sm border flex items-center justify-center active:scale-90 transition-all shrink-0"
-            style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-secondary)" }}
-          >
-            <ChevronRight size={18} />
-          </button>
+          {/* Navigation semaine */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setWeekOffset((p) => p - 1)}
+              className="w-10 h-10 rounded-2xl shadow-sm border flex items-center justify-center active:scale-90 transition-all shrink-0"
+              style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-secondary)" }}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              onClick={() => { setWeekOffset(0); setDayIndex(getInitialDayIndex()); }}
+              className="flex-1 h-10 rounded-2xl font-bold text-sm transition-all border shadow-sm"
+              style={{
+                background: weekOffset === 0 ? "var(--accent)" : "var(--card-bg)",
+                color: weekOffset === 0 ? "#ffffff" : "var(--text-secondary)",
+                borderColor: "var(--card-border)",
+              }}
+            >
+              {weekOffset === 0 ? "Cette semaine" : weekLabel()}
+            </button>
+            <button
+              onClick={() => setWeekOffset((p) => p + 1)}
+              className="w-10 h-10 rounded-2xl shadow-sm border flex items-center justify-center active:scale-90 transition-all shrink-0"
+              style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-secondary)" }}
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+
+          {/* Sélecteur de jours */}
+          {!loading && weekDays.length > 0 && (
+            <div className="grid grid-cols-7 gap-1">
+              {weekDays.map((date, idx) => {
+                const isSelected = idx === dayIndex;
+                const isToday    = isoDate(date) === todayIso();
+                const hasBars    = bars.some((b) => {
+                  const eff = b.start_date < firstDayOfWeek ? firstDayOfWeek : b.start_date;
+                  return eff === isoDate(date);
+                });
+                return (
+                  <button
+                    key={isoDate(date)}
+                    onClick={() => setDayIndex(idx)}
+                    className="flex flex-col items-center py-2 rounded-2xl transition-all"
+                    style={{
+                      background: isSelected
+                        ? "var(--accent)"
+                        : isToday
+                        ? "var(--accent-light)"
+                        : "var(--card-bg)",
+                    }}
+                  >
+                    <span className="text-[9px] font-black uppercase tracking-wider"
+                      style={{ color: isSelected ? "rgba(255,255,255,0.7)" : "var(--text-muted)" }}>
+                      {DAY_LETTERS[date.getDay()]}
+                    </span>
+                    <span className="text-base font-black leading-tight"
+                      style={{
+                        color: isSelected ? "#ffffff" : isToday ? "var(--accent)" : "var(--text-primary)",
+                      }}>
+                      {date.getDate()}
+                    </span>
+                    <span className="w-1 h-1 rounded-full mt-0.5"
+                      style={{
+                        background: hasBars
+                          ? isSelected ? "#ffffff" : "var(--accent)"
+                          : "transparent",
+                      }}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Vue du jour */}
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-64 gap-3">
+              <Loader2 className="animate-spin" size={28} style={{ color: "var(--accent)" }} />
+              <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>Chargement...</p>
+            </div>
+          ) : currentDate ? (
+            <DroppableDay dateId={currentDateId} date={currentDate}>
+              {dayBars.length > 0 ? (
+                dayBars.map((bar) => (
+                  <PlanningCard key={bar.dossier_id} bar={bar} onEdit={setEditingBar} onRemove={handleRemove} />
+                ))
+              ) : (
+                <p className="text-center text-sm py-8 italic" style={{ color: "var(--text-muted)" }}>
+                  Aucun dossier ce jour
+                </p>
+              )}
+            </DroppableDay>
+          ) : null}
         </div>
 
-        {/* Sélecteur de jours */}
-        {!loading && weekDays.length > 0 && (
-          <div className="grid grid-cols-7 gap-1">
-            {weekDays.map((date, idx) => {
-              const isSelected = idx === dayIndex;
-              const isToday    = isoDate(date) === todayIso();
-              const hasBars    = bars.some((b) => {
-                const eff = b.start_date < firstDayOfWeek ? firstDayOfWeek : b.start_date;
-                return eff === isoDate(date);
-              });
-              return (
-                <button
-                  key={isoDate(date)}
-                  onClick={() => setDayIndex(idx)}
-                  className="flex flex-col items-center py-2 rounded-2xl transition-all"
-                  style={{
-                    background: isSelected
-                      ? "var(--accent)"
-                      : isToday
-                      ? "var(--accent-light)"
-                      : "var(--card-bg)",
-                  }}
-                >
-                  <span className="text-[9px] font-black uppercase tracking-wider"
-                    style={{ color: isSelected ? "rgba(255,255,255,0.7)" : "var(--text-muted)" }}>
-                    {DAY_LETTERS[date.getDay()]}
-                  </span>
-                  <span className="text-base font-black leading-tight"
-                    style={{
-                      color: isSelected ? "#ffffff" : isToday ? "var(--accent)" : "var(--text-primary)",
-                    }}>
-                    {date.getDate()}
-                  </span>
-                  <span className="w-1 h-1 rounded-full mt-0.5"
-                    style={{
-                      background: hasBars
-                        ? isSelected ? "#ffffff" : "var(--accent)"
-                        : "transparent",
-                    }}
-                  />
-                </button>
-              );
-            })}
-          </div>
-        )}
+        {/* Drawer */}
+        <UnplannedDrawer
+          unplanned={unplanned}
+          open={drawerOpen}
+          onToggle={() => setDrawerOpen((p) => !p)}
+        />
 
-        {/* Vue du jour */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center h-64 gap-3">
-            <Loader2 className="animate-spin" size={28} style={{ color: "var(--accent)" }} />
-            <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>Chargement...</p>
-          </div>
-        ) : currentDate ? (
-          <DroppableDay dateId={currentDateId} date={currentDate}>
-            {dayBars.length > 0 ? (
-              dayBars.map((bar) => (
-                <PlanningCard key={bar.dossier_id} bar={bar} onEdit={setEditingBar} onRemove={handleRemove} />
-              ))
-            ) : (
-              <p className="text-center text-sm py-8 italic" style={{ color: "var(--text-muted)" }}>
-                Aucun dossier ce jour
-              </p>
-            )}
-          </DroppableDay>
-        ) : null}
-      </div>
+        {/* Drag overlay */}
+        <DragOverlay dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: "0.3" } } }) }}>
+          {activeId ? (
+            <div className="rotate-2 scale-105 text-white px-4 py-3 rounded-2xl font-bold text-xs shadow-2xl"
+              style={{ background: "var(--accent)" }}>
+              Déplacement…
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
-      {/* Drawer */}
-      <UnplannedDrawer
-        unplanned={unplanned}
-        open={drawerOpen}
-        onToggle={() => setDrawerOpen((p) => !p)}
-      />
-
-      {/* Drag overlay */}
-      <DragOverlay dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: "0.3" } } }) }}>
-        {activeId ? (
-          <div className="rotate-2 scale-105 text-white px-4 py-3 rounded-2xl font-bold text-xs shadow-2xl"
-            style={{ background: "var(--accent)" }}>
-            Déplacement…
-          </div>
-        ) : null}
-      </DragOverlay>
-
+      {/* Modal EN DEHORS du DndContext */}
       {editingBar && (
         <WeekEditModal bar={editingBar} onSave={handleEditSave} onClose={() => setEditingBar(null)} />
       )}
-    </DndContext>
+    </>
   );
 }

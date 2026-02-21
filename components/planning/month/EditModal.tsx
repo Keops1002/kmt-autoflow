@@ -27,12 +27,16 @@ export default function EditModal({ bar, onSave, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden"
-        style={{ background: "var(--card-bg-active)" }}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
+      <div className="absolute inset-0" onClick={onClose} />
 
+      <div
+        className="relative w-full max-w-sm rounded-3xl shadow-2xl"
+        style={{ background: "var(--card-bg-active)", zIndex: 101 }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="px-6 py-5 flex items-center justify-between"
+        <div className="px-6 py-5 flex items-center justify-between rounded-t-3xl"
           style={{ background: "var(--accent)" }}>
           <div>
             <p className="text-white/70 text-xs font-bold uppercase tracking-widest">Modifier</p>
@@ -48,8 +52,6 @@ export default function EditModal({ bar, onSave, onClose }: Props) {
         </div>
 
         <div className="px-6 py-5 space-y-4">
-
-          {/* Début */}
           <div className="space-y-1">
             <label className="text-xs font-black uppercase tracking-wider"
               style={{ color: "var(--text-muted)" }}>
@@ -58,7 +60,7 @@ export default function EditModal({ bar, onSave, onClose }: Props) {
             <input
               type="date" value={start}
               onChange={(e) => { setStart(e.target.value); if (e.target.value > end) setEnd(e.target.value); }}
-              className="w-full px-4 py-3 rounded-2xl border font-bold text-sm focus:outline-none focus:ring-2"
+              className="w-full px-4 py-3 rounded-2xl border font-bold text-sm focus:outline-none"
               style={{
                 background: "var(--card-bg)",
                 borderColor: "var(--card-border)",
@@ -67,7 +69,6 @@ export default function EditModal({ bar, onSave, onClose }: Props) {
             />
           </div>
 
-          {/* Fin */}
           <div className="space-y-1">
             <label className="text-xs font-black uppercase tracking-wider"
               style={{ color: "var(--text-muted)" }}>
@@ -76,7 +77,7 @@ export default function EditModal({ bar, onSave, onClose }: Props) {
             <input
               type="date" value={end} min={start}
               onChange={(e) => setEnd(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border font-bold text-sm focus:outline-none focus:ring-2"
+              className="w-full px-4 py-3 rounded-2xl border font-bold text-sm focus:outline-none"
               style={{
                 background: "var(--card-bg)",
                 borderColor: "var(--card-border)",
@@ -85,7 +86,6 @@ export default function EditModal({ bar, onSave, onClose }: Props) {
             />
           </div>
 
-          {/* Durée */}
           {isValid && (
             <div className="flex items-center gap-2 px-4 py-3 rounded-2xl"
               style={{ background: "var(--accent-light)" }}>
@@ -96,7 +96,6 @@ export default function EditModal({ bar, onSave, onClose }: Props) {
             </div>
           )}
 
-          {/* Boutons */}
           <div className="flex gap-3 pt-1">
             <button onClick={onClose}
               className="flex-1 py-3 rounded-2xl font-bold text-sm"

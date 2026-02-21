@@ -27,28 +27,42 @@ export default function WeekEditModal({ bar, onSave, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden"
-        style={{ background: "var(--card-bg-active)" }}>
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm"
+    >
+      <div className="absolute inset-0" onClick={onClose} />
 
+      <div
+        className="relative w-full max-w-sm rounded-3xl shadow-2xl flex flex-col"
+        style={{ background: "var(--card-bg-active)", zIndex: 101 }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="px-6 py-5 flex items-center justify-between"
-          style={{ background: "var(--accent)" }}>
+        <div
+          className="px-6 py-5 flex items-center justify-between rounded-t-3xl shrink-0"
+          style={{ background: "var(--accent)" }}
+        >
           <div>
-            <p className="text-white/60 text-xs font-bold uppercase tracking-widest">Modifier planning</p>
-            <h3 className="text-white font-black text-lg mt-1">{bar.dossiers?.problem || "Dossier"}</h3>
+            <p className="text-white/60 text-xs font-bold uppercase tracking-widest">
+              Modifier planning
+            </p>
+            <h3 className="text-white font-black text-lg mt-1">
+              {bar.dossiers?.problem || "Dossier"}
+            </h3>
             <p className="text-white/50 text-xs mt-0.5">
               {bar.dossiers?.vehicles?.brand} {bar.dossiers?.vehicles?.model}
             </p>
           </div>
-          <button onClick={onClose}
-            className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white">
+          <button
+            onClick={onClose}
+            className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white"
+          >
             <X size={16} />
           </button>
         </div>
 
+        {/* Contenu */}
         <div className="px-6 py-5 space-y-4">
-          {/* Début */}
           <div className="space-y-1">
             <label className="text-xs font-black uppercase tracking-wider"
               style={{ color: "var(--text-muted)" }}>
@@ -56,8 +70,11 @@ export default function WeekEditModal({ bar, onSave, onClose }: Props) {
             </label>
             <input
               type="date" value={start}
-              onChange={(e) => { setStart(e.target.value); if (e.target.value > end) setEnd(e.target.value); }}
-              className="w-full px-4 py-3 rounded-2xl border font-bold text-sm focus:outline-none focus:ring-2"
+              onChange={(e) => {
+                setStart(e.target.value);
+                if (e.target.value > end) setEnd(e.target.value);
+              }}
+              className="w-full px-4 py-3 rounded-2xl border font-bold text-sm focus:outline-none"
               style={{
                 background: "var(--card-bg)",
                 borderColor: "var(--card-border)",
@@ -66,7 +83,6 @@ export default function WeekEditModal({ bar, onSave, onClose }: Props) {
             />
           </div>
 
-          {/* Fin */}
           <div className="space-y-1">
             <label className="text-xs font-black uppercase tracking-wider"
               style={{ color: "var(--text-muted)" }}>
@@ -75,7 +91,7 @@ export default function WeekEditModal({ bar, onSave, onClose }: Props) {
             <input
               type="date" value={end} min={start}
               onChange={(e) => setEnd(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border font-bold text-sm focus:outline-none focus:ring-2"
+              className="w-full px-4 py-3 rounded-2xl border font-bold text-sm focus:outline-none"
               style={{
                 background: "var(--card-bg)",
                 borderColor: "var(--card-border)",
@@ -84,7 +100,6 @@ export default function WeekEditModal({ bar, onSave, onClose }: Props) {
             />
           </div>
 
-          {/* Durée */}
           {isValid && (
             <div className="flex items-center gap-2 px-4 py-3 rounded-2xl"
               style={{ background: "var(--accent-light)" }}>
@@ -95,7 +110,6 @@ export default function WeekEditModal({ bar, onSave, onClose }: Props) {
             </div>
           )}
 
-          {/* Boutons */}
           <div className="flex gap-3 pt-1">
             <button onClick={onClose}
               className="flex-1 py-3 rounded-2xl font-bold text-sm"

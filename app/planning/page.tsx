@@ -10,7 +10,7 @@ export default function PlanningPage() {
 
   return (
     <AppContainer>
-      <div className="px-4 pt-10 pb-4 flex flex-col gap-4">
+      <div className="px-4 pt-10 pb-40 space-y-4">
 
         <div className="flex items-center justify-between px-2">
           <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>

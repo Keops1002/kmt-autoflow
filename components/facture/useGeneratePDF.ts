@@ -408,3 +408,69 @@ export async function generatePDFBlob(factureId: string): Promise<{ blob: Blob; 
   const blob = doc.output("blob");
   return { blob, data };
 }
+
+
+export async function generateDevisBlob(devisId: string): Promise<{ blob: Blob; numero: string; clientEmail?: string }> {
+  const { data: devis, error } = await supabase
+    .from("devis")
+    .select(`
+      id, numero, created_at, tva_enabled, signature_data,
+      total_ht, total_tva, total_ttc,
+      devis_lignes ( label, quantity, unit_price, tva ),
+      dossiers:dossier_id (
+        vehicles:vehicle_id (
+          brand, model, plate, km,
+          clients:client_id ( name, phone, email )
+        )
+      )
+    `)
+    .eq("id", devisId)
+    .single();
+
+  if (error || !devis) throw new Error("Devis introuvable");
+
+  const { data: garage } = await supabase
+    .from("garage_info").select("*").limit(1).single();
+
+  const d       = devis as any;
+  const vehicle = d.dossiers?.vehicles;
+  const client  = vehicle?.clients;
+
+  const data: FacturePDFData = {
+    numero:         d.numero,
+    created_at:     d.created_at,
+    status:         "devis",
+    total_ht:       d.total_ht,
+    total_tva:      d.total_tva,
+    total_ttc:      d.total_ttc,
+    tva_enabled:    d.tva_enabled ?? true,
+    lignes:         d.devis_lignes || [],
+    signature_data: d.signature_data,
+    client: {
+      name:  client?.name  || "Client inconnu",
+      phone: client?.phone,
+      email: client?.email,
+    },
+    vehicle: {
+      brand: vehicle?.brand || "",
+      model: vehicle?.model || "",
+      plate: vehicle?.plate,
+      km:    vehicle?.km,
+    },
+    garage: {
+      name:       garage?.name       || "Garage",
+      legal_form: garage?.legal_form,
+      address:    garage?.address,
+      city:       garage?.city,
+      phone:      garage?.phone,
+      email:      garage?.email,
+      siret:      garage?.siret,
+      tva_number: garage?.tva_number,
+      capital:    garage?.capital,
+    },
+  };
+
+  const doc  = generatePDFDoc(data);
+  const blob = doc.output("blob");
+  return { blob, numero: d.numero, clientEmail: client?.email };
+}

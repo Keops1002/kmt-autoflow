@@ -26,25 +26,29 @@ export default function MonthDayModal({ date, bars, onClose, onEdit, onRemove }:
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden"
-        style={{ background: "var(--card-bg-active)" }}>
+   <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
+  <div className="absolute inset-0" onClick={onClose} />
+  
+  <div
+    className="relative w-full max-w-sm rounded-3xl shadow-2xl"
+    style={{ background: "var(--card-bg-active)", zIndex: 101 }}
+    onClick={(e) => e.stopPropagation()}
+  >
+    {/* Header */}
+    <div className="px-6 py-4 flex items-center justify-between rounded-t-3xl"
+      style={{ background: "var(--accent)" }}>
+      <div>
+        <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Dossiers du jour</p>
+        <h3 className="text-white font-black text-base capitalize mt-0.5">{label}</h3>
+      </div>
+      <button onClick={onClose}
+        className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">
+        <X size={15} />
+      </button>
+    </div>
 
-        {/* Header */}
-        <div className="px-6 py-4 flex items-center justify-between"
-          style={{ background: "var(--accent)" }}>
-          <div>
-            <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Dossiers du jour</p>
-            <h3 className="text-white font-black text-base capitalize mt-0.5">{label}</h3>
-          </div>
-          <button onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">
-            <X size={15} />
-          </button>
-        </div>
-
-        {/* Contenu */}
-        <div className="px-5 py-4 space-y-3 max-h-[60vh] overflow-y-auto">
+    {/* Contenu */}
+    <div className="px-5 py-4 space-y-3 max-h-[60vh] overflow-y-auto">
           {bars.length === 0 ? (
             <p className="text-center text-sm py-6 italic" style={{ color: "var(--text-muted)" }}>
               Aucun dossier ce jour
