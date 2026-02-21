@@ -1,5 +1,5 @@
 @import "tailwindcss";
-
+/* stylelint-disable at-rule-no-unknown */
 /* ── Thème par défaut : Light Blue ── */
 :root {
   --bg-base:        #cfd4d9;
@@ -17,6 +17,14 @@
   --accent:         #17179C;
   --accent-light:   rgba(23,23,156,0.1);
   --shadow:         rgba(0,0,0,0.06);
+
+  /* Agent KMT — Light */
+  --kmt-from:   #0f0c29;
+  --kmt-mid:    #312e81;
+  --kmt-to:     #4f46e5;
+  --kmt-glow:   rgba(139, 92, 246, 0.5);
+  --kmt-dot:    #a78bfa;
+  --kmt-border: rgba(139, 92, 246, 0.6);
 }
 
 /* ── Thème Silver Dark ── */
@@ -36,6 +44,41 @@
   --accent:         #818cf8;
   --accent-light:   rgba(129,140,248,0.15);
   --shadow:         rgba(0,0,0,0.4);
+
+  /* Agent KMT — Silver */
+  --kmt-from:   #0f0f0f;
+  --kmt-mid:    #374151;
+  --kmt-to:     #6b7280;
+  --kmt-glow:   rgba(156, 163, 175, 0.5);
+  --kmt-dot:    #d1d5db;
+  --kmt-border: rgba(156, 163, 175, 0.6);
+}
+
+/* ── Thème Gold ── */
+:root[data-theme="gold"] {
+  --bg-base:        #0f0c05;
+  --bg-from:        #1a1508;
+  --bg-via:         #12100a;
+  --bg-to:          #0a0805;
+  --nav-bg:         rgba(212,175,55,0.08);
+  --nav-border:     rgba(212,175,55,0.15);
+  --card-bg:        rgba(212,175,55,0.07);
+  --card-border:    rgba(212,175,55,0.18);
+  --card-bg-active: rgba(212,175,55,0.12);
+  --text-primary:   #f5e6b8;
+  --text-secondary: #c9a84c;
+  --text-muted:     #7a6535;
+  --accent:         #d4af37;
+  --accent-light:   rgba(212,175,55,0.15);
+  --shadow:         rgba(0,0,0,0.6);
+
+  /* Agent KMT — Gold */
+  --kmt-from:   #1c1400;
+  --kmt-mid:    #92400e;
+  --kmt-to:     #d97706;
+  --kmt-glow:   rgba(217, 119, 6, 0.5);
+  --kmt-dot:    #fbbf24;
+  --kmt-border: rgba(251, 191, 36, 0.6);
 }
 
 @theme inline {
@@ -50,8 +93,6 @@ body {
   color: var(--text-primary);
   font-family: Arial, Helvetica, sans-serif;
 }
-
-/* Ajoute ça à la fin de globals.css */
 
 .theme-bg {
   background: linear-gradient(to bottom, var(--bg-from), var(--bg-via), var(--bg-to));
@@ -95,21 +136,26 @@ body {
   background: var(--accent-light);
 }
 
+/* ── Animations Agent KMT ── */
+@keyframes kmt-wave {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
 
-:root[data-theme="gold"] {
-  --bg-base:        #0f0c05;
-  --bg-from:        #1a1508;
-  --bg-via:         #12100a;
-  --bg-to:          #0a0805;
-  --nav-bg:         rgba(212,175,55,0.08);
-  --nav-border:     rgba(212,175,55,0.15);
-  --card-bg:        rgba(212,175,55,0.07);
-  --card-border:    rgba(212,175,55,0.18);
-  --card-bg-active: rgba(212,175,55,0.12);
-  --text-primary:   #f5e6b8;
-  --text-secondary: #c9a84c;
-  --text-muted:     #7a6535;
-  --accent:         #d4af37;
-  --accent-light:   rgba(212,175,55,0.15);
-  --shadow:         rgba(0,0,0,0.6);
+@keyframes kmt-shimmer {
+  0%   { opacity: 0.4; transform: translateX(-10%) scaleX(1); }
+  100% { opacity: 0.8; transform: translateX(10%) scaleX(1.1); }
+}
+
+@keyframes kmt-glow {
+  0%   { opacity: 0.5; }
+  50%  { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+
+@keyframes kmt-pop {
+  0%   { transform: scale(0.92); opacity: 0; }
+  60%  { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
 }

@@ -5,11 +5,9 @@ import { useRouter } from "next/navigation";
 import AppContainer from "@/components/layout/AppContainer";
 import { getClientsWithStats as getClients, createClient } from "@/lib/api/clients";
 import { supabase } from "@/lib/supabase";
-import {
-  User, Car, Wrench, ChevronRight, ChevronLeft,
-  Check, Loader2, Plus, Phone, Mail, Search
-} from "lucide-react";
-
+import { User, Car, Wrench, ChevronRight, ChevronLeft,
+         Check, Loader2, Plus, Phone, Mail, Search, Camera } from "lucide-react";
+import PhotoUploader from "@/components/dossiers/PhotoUploader";
 interface Client {
   id: string;
   name: string;
@@ -21,8 +19,8 @@ const STEPS = [
   { id: 1, label: "Client",   icon: User },
   { id: 2, label: "Véhicule", icon: Car },
   { id: 3, label: "Dossier",  icon: Wrench },
+  { id: 4, label: "Photos",   icon: Camera },
 ];
-
 function StepIndicator({ current }: { current: number }) {
   return (
     <div className="flex items-center justify-center gap-2 py-2">
@@ -128,6 +126,8 @@ export default function NewDossierPage() {
 
   // UI
   const [saving, setSaving] = useState(false);
+  const [createdDossierId, setCreatedDossierId] = useState<string | null>(null);
+
 
   useEffect(() => {
     getClients().then((data) => setClients(data || [])).catch(console.error);
@@ -142,44 +142,46 @@ export default function NewDossierPage() {
     c.phone?.includes(search)
   );
 
-  async function handleCreate() {
-    if (!isStep3Valid) return;
-    setSaving(true);
-    try {
-      let clientId = selectedClient?.id;
-      if (!clientId) {
-        const newClient = await createClient({
-          name: newClientName,
-          phone: newClientPhone,
-          email: newClientEmail,
-        });
-        clientId = newClient.id;
-      }
-
-      const { data: vehicleData, error: vehicleError } = await supabase
-        .from("vehicles")
-        .insert({ client_id: clientId, brand, model, plate: plate || null })
-        .select().single();
-      if (vehicleError) throw vehicleError;
-
-      const { error: dossierError } = await supabase
-        .from("dossiers")
-        .insert({
-          vehicle_id: vehicleData.id,
-          problem,
-          estimated_price: estimatedPrice ? Number(estimatedPrice) : null,
-          status: "pending",
-        });
-      if (dossierError) throw dossierError;
-
-      router.push("/dossiers");
-    } catch (e) {
-      console.error(e);
-      alert("Erreur lors de la création");
-    } finally {
-      setSaving(false);
+ async function handleCreate() {
+  if (!isStep3Valid) return;
+  setSaving(true);
+  try {
+    let clientId = selectedClient?.id;
+    if (!clientId) {
+      const newClient = await createClient({
+        name: newClientName,
+        phone: newClientPhone,
+        email: newClientEmail,
+      });
+      clientId = newClient.id;
     }
+
+    const { data: vehicleData, error: vehicleError } = await supabase
+      .from("vehicles")
+      .insert({ client_id: clientId, brand, model, plate: plate || null })
+      .select().single();
+    if (vehicleError) throw vehicleError;
+
+    const { data: dossierData, error: dossierError } = await supabase
+      .from("dossiers")
+      .insert({
+        vehicle_id: vehicleData.id,
+        problem,
+        estimated_price: estimatedPrice ? Number(estimatedPrice) : null,
+        status: "pending",
+      })
+      .select().single();
+    if (dossierError) throw dossierError;
+
+    setCreatedDossierId(dossierData.id);
+    setStep(4); // ← étape photos
+  } catch (e) {
+    console.error(e);
+    alert("Erreur lors de la création");
+  } finally {
+    setSaving(false);
   }
+}
 
   return (
     <AppContainer>
@@ -400,7 +402,49 @@ export default function NewDossierPage() {
             </div>
           </div>
         )}
+{/* ─── STEP 4 — PHOTOS ─────────────────────────────── */}
+{step === 4 && createdDossierId && (
+  <div className="space-y-3">
+    <div className="rounded-2xl border p-4 space-y-4"
+      style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}>
 
+      <div className="flex items-center gap-2">
+        <Camera size={16} style={{ color: "var(--accent)" }} />
+        <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
+          Ajouter des photos
+        </p>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+          style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
+          Optionnel
+        </span>
+      </div>
+
+      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+        Jusqu'à 4 photos — accessibles depuis n'importe quel appareil
+      </p>
+
+      <PhotoUploader
+        dossierId={createdDossierId}
+        currentCount={0}
+        onUploaded={() => {}}
+      />
+    </div>
+
+    <button
+      onClick={() => router.push("/dossiers")}
+      className="w-full py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+      style={{ background: "var(--accent)", color: "#ffffff" }}>
+      <Check size={16} /> Terminer
+    </button>
+
+    <button
+      onClick={() => router.push(`/dossiers/${createdDossierId}`)}
+      className="w-full py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+      style={{ background: "var(--card-bg)", color: "var(--text-muted)", borderWidth: 1, borderColor: "var(--card-border)" }}>
+      Voir le dossier →
+    </button>
+  </div>
+)}
       </div>
     </AppContainer>
   );

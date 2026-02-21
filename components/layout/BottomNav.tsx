@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Calendar, Car, Users, AlertTriangle, Plus, Bot, BarChart2, BookOpen } from "lucide-react";
+import {
+  Home, Calendar, Car, Users, AlertTriangle,
+  Bot, BarChart2, Plus,
+} from "lucide-react";
 import { useState, useEffect } from "react";
 
 export default function BottomNav() {
@@ -12,20 +15,20 @@ export default function BottomNav() {
   useEffect(() => { setOpen(false); }, [pathname]);
 
   const leftItems = [
-    { icon: Home,     path: "/" },
-    { icon: Calendar, path: "/planning" },
-    { icon: Bot,      path: "/assistant" },
-  ];
-  const rightItems = [
+    { icon: Home,          path: "/"         },
+    { icon: Calendar,      path: "/planning" },
     { icon: Car,           path: "/dossiers" },
-    { icon: Users,         path: "/clients" },
-    { icon: AlertTriangle, path: "/alertes" },
+  ];
+
+  const rightItems = [
+    { icon: Users,         path: "/clients"  },
+    { icon: AlertTriangle, path: "/alertes"  },
+    { icon: BarChart2,     path: "/stats"    },
   ];
 
   const actions = [
-    { icon: BarChart2, label: "Statistiques",    path: "/stats" },
-    { icon: BookOpen,  label: "Catalogue",       path: "/catalogue" },
-    { icon: Plus,      label: "Nouveau dossier", path: "/dossiers/new" },
+    { icon: Bot,  label: "Agent KMT",       path: "/assistant"    },
+    { icon: Plus, label: "Nouveau dossier", path: "/dossiers/new" },
   ];
 
   return (
@@ -46,20 +49,64 @@ export default function BottomNav() {
         <div className={`flex flex-col gap-2 w-52 transition-all duration-300 ease-out ${
           open ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
         }`}>
-          {actions.map((action, i) => (
-            <Link
-              key={action.path}
-              href={action.path}
-              prefetch={true}
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 rounded-2xl font-black text-sm shadow-md
-                         active:scale-[0.97] transition-all duration-200 theme-card border"
-              style={{ transitionDelay: open ? `${i * 40}ms` : "0ms" }}
-            >
-              <action.icon size={16} strokeWidth={2.5} style={{ color: "var(--accent)" }} />
-              <span style={{ color: "var(--text-primary)" }}>{action.label}</span>
-            </Link>
-          ))}
+          {actions.map((action, i) => {
+            const isKMT = action.path === "/assistant";
+            return (
+              <Link
+                key={action.path}
+                href={action.path}
+                prefetch={true}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-2xl font-black text-sm shadow-lg active:scale-[0.97] transition-all duration-200 border overflow-hidden relative"
+                style={{
+                  transitionDelay: open ? `${i * 40}ms` : "0ms",
+                  borderColor: isKMT ? "var(--kmt-border)" : "var(--card-border)",
+                  background: isKMT ? "transparent" : "var(--card-bg)",
+                  boxShadow: isKMT ? "0 0 20px var(--kmt-glow), 0 4px 15px rgba(0,0,0,0.2)" : undefined,
+                }}
+              >
+                {isKMT && (
+                  <>
+                    {/* Fond dégradé animé */}
+                    <span className="absolute inset-0 z-0" style={{
+                      background: "linear-gradient(135deg, var(--kmt-from), var(--kmt-mid), var(--kmt-to), var(--kmt-mid), var(--kmt-from))",
+                      backgroundSize: "400% 400%",
+                      animation: "kmt-wave 4s ease infinite",
+                    }} />
+                    {/* Reflet lumineux */}
+                    <span className="absolute inset-0 z-0" style={{
+                      background: "radial-gradient(ellipse at 30% 50%, var(--kmt-glow) 0%, transparent 55%), radial-gradient(ellipse at 70% 50%, var(--kmt-glow) 0%, transparent 55%)",
+                      animation: "kmt-shimmer 2.5s ease-in-out infinite alternate",
+                    }} />
+                    {/* Halo */}
+                    <span className="absolute inset-0 z-0" style={{
+                      background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%)",
+                      animation: "kmt-glow 2s ease-in-out infinite",
+                    }} />
+                  </>
+                )}
+                <action.icon
+                  size={16}
+                  strokeWidth={2.5}
+                  className="relative z-10"
+                  style={{ color: isKMT ? "#ffffff" : "var(--accent)" }}
+                />
+                <span
+                  className="relative z-10 tracking-wide"
+                  style={{ color: isKMT ? "#ffffff" : "var(--text-primary)" }}
+                >
+                  {action.label}
+                </span>
+                {isKMT && (
+                  <span className="relative z-10 ml-auto w-1.5 h-1.5 rounded-full" style={{
+                    background: "var(--kmt-dot)",
+                    boxShadow: "0 0 6px 2px var(--kmt-glow)",
+                    animation: "kmt-glow 1.5s ease-in-out infinite",
+                  }} />
+                )}
+              </Link>
+            );
+          })}
         </div>
       </div>
 
@@ -98,7 +145,9 @@ export default function BottomNav() {
                   key={path}
                   href={path}
                   prefetch={true}
-                  className="transition-all duration-150 active:scale-75 active:rotate-12"
+                  className={`transition-all duration-150 active:scale-75 active:rotate-12 ${
+                    isActive ? "scale-110" : ""
+                  }`}
                   style={{ color: isActive ? "var(--accent)" : "var(--text-muted)" }}
                 >
                   <Icon size={22} strokeWidth={2.5} />
@@ -121,16 +170,18 @@ export default function BottomNav() {
           <div className="absolute left-1/2 -translate-x-1/2 -translate-y-5">
             <button
               onClick={() => setOpen((p) => !p)}
-              className="w-12 h-12 rounded-full flex items-center justify-center shadow-xl
-                         transition-all duration-300 active:scale-90"
+              className="w-12 h-12 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 active:scale-90"
               style={{ background: open ? "var(--text-secondary)" : "var(--accent)" }}
             >
               {!open && (
-                <span className="absolute inset-0 rounded-full animate-pulse"
-                  style={{ background: "var(--accent-light)" }} />
+                <span
+                  className="absolute inset-0 rounded-full animate-pulse"
+                  style={{ background: "var(--accent-light)" }}
+                />
               )}
               <Plus
-                size={20} strokeWidth={3}
+                size={20}
+                strokeWidth={3}
                 className="text-white transition-transform duration-300"
                 style={{ transform: open ? "rotate(45deg)" : "rotate(0deg)" }}
               />
