@@ -21,16 +21,25 @@ export default function PhotoGallery({ dossierId }: Props) {
   const [preview, setPreview]     = useState<string | null>(null);
   const [deleting, setDeleting]   = useState<string | null>(null);
 
-  useEffect(() => { loadPhotos(); }, [dossierId]);
+  useEffect(() => { 
+    if (dossierId) loadPhotos(); 
+  }, [dossierId]);
 
   async function loadPhotos() {
-    const { data } = await supabase
-      .from("dossiers_photos")
-      .select("*")
-      .eq("dossier_id", dossierId)
-      .order("created_at");
-    setPhotos((data as Photo[]) || []);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from("dossiers_photos")
+        .select("*")
+        .eq("dossier_id", dossierId)
+        .order("created_at");
+      
+      if (error) throw error;
+      setPhotos((data as Photo[]) || []);
+    } catch (e) {
+      console.error("Erreur chargement galerie:", e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleDelete(photo: Photo) {
@@ -41,8 +50,8 @@ export default function PhotoGallery({ dossierId }: Props) {
     setDeleting(null);
   }
 
-  function handleUploaded(url: string) {
-    loadPhotos();
+  function handleUploaded() {
+    loadPhotos(); // Refetch les photos (sans le cache grâce au correctif !)
   }
 
   if (loading) return (
@@ -60,9 +69,8 @@ export default function PhotoGallery({ dossierId }: Props) {
           </p>
         </div>
 
-        {/* Grille photos */}
         {photos.length > 0 && (
-          <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-4 gap-1.5">
             {photos.map((photo) => (
               <div key={photo.id} className="relative rounded-2xl overflow-hidden aspect-square">
                 <img
@@ -71,9 +79,9 @@ export default function PhotoGallery({ dossierId }: Props) {
                   className="w-full h-full object-cover"
                   onClick={() => setPreview(photo.url)}
                 />
-                {/* Overlay actions */}
                 <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-all flex items-start justify-between p-2">
                   <button
+                    type="button"
                     onClick={() => setPreview(photo.url)}
                     className="w-7 h-7 rounded-full flex items-center justify-center opacity-0 hover:opacity-100 transition-all"
                     style={{ background: "rgba(0,0,0,0.5)" }}
@@ -81,6 +89,7 @@ export default function PhotoGallery({ dossierId }: Props) {
                     <ZoomIn size={13} className="text-white" />
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleDelete(photo)}
                     disabled={deleting === photo.id}
                     className="w-7 h-7 rounded-full flex items-center justify-center"
@@ -97,7 +106,6 @@ export default function PhotoGallery({ dossierId }: Props) {
           </div>
         )}
 
-        {/* Upload */}
         <PhotoUploader
           dossierId={dossierId}
           currentCount={photos.length}
@@ -105,7 +113,6 @@ export default function PhotoGallery({ dossierId }: Props) {
         />
       </div>
 
-      {/* Modal preview plein écran */}
       {preview && (
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90"
@@ -113,6 +120,7 @@ export default function PhotoGallery({ dossierId }: Props) {
         >
           <img src={preview} alt="preview" className="max-w-full max-h-full object-contain rounded-2xl" />
           <button
+            type="button"
             onClick={() => setPreview(null)}
             className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center"
             style={{ background: "rgba(255,255,255,0.15)" }}

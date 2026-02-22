@@ -8,6 +8,7 @@ import {
   defaultDropAnimationSideEffects,
 } from "@dnd-kit/core";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 import {
   getPlanningData, moveDossierToDate, scheduleDossier,
@@ -21,6 +22,12 @@ import PlanningCard    from "./week/PlanningCard";
 import WeekEditModal   from "./week/WeekEditModal";
 import UnplannedDrawer from "./week/UnplannedDrawer";
 
+// Type pour les collaborateurs
+interface Collaborateur {
+  id: string;
+  prenom: string;
+}
+
 export default function WeekView() {
   const [loading,    setLoading]    = useState(true);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -30,7 +37,10 @@ export default function WeekView() {
   const [activeId,   setActiveId]   = useState<string | null>(null);
   const [editingBar, setEditingBar] = useState<PlanningBar | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [dayIndex,   setDayIndex]   = useState(getInitialDayIndex);
+  const [dayIndex,   setDayIndex]   = useState(getInitialDayIndex());
+  
+  // State pour les collaborateurs
+  const [collaborateurs, setCollaborateurs] = useState<Collaborateur[]>([]);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
@@ -44,12 +54,18 @@ export default function WeekView() {
   async function loadData() {
     setLoading(true);
     try {
-      const res = await getPlanningData(weekOffset);
+      // Chargement simultané du planning et des collaborateurs
+      const [res, collabsRes] = await Promise.all([
+        getPlanningData(weekOffset),
+        supabase.from("collaborateurs").select("id, prenom")
+      ]);
+
       setWeekDays(res.weekDays);
       setBars(res.bars);
       setUnplanned(res.unplanned);
+      if (collabsRes.data) setCollaborateurs(collabsRes.data);
     } catch (e) {
-      console.error(e);
+      console.error("Erreur chargement planning:", e);
     } finally {
       setLoading(false);
     }
@@ -71,7 +87,7 @@ export default function WeekView() {
         dossiers: {
           id: dossier.id, problem: dossier.problem,
           status: dossier.status, estimated_price: dossier.estimated_price,
-          vehicles: dossier.vehicles ?? null,
+          vehicles: (dossier as any).vehicles ?? null,
         },
       };
       setBars((p) => [...p, newBar]);
@@ -107,6 +123,7 @@ export default function WeekView() {
       b.dossier_id === editingBar.dossier_id ? { ...b, start_date: start, end_date: end } : b
     ));
     await scheduleDossier(editingBar.dossier_id, start, end);
+    setEditingBar(null);
   }
 
   function weekLabel() {
@@ -132,7 +149,6 @@ export default function WeekView() {
         onDragEnd={handleDragEnd}
       >
         <div className="space-y-3">
-
           {/* Navigation semaine */}
           <div className="flex items-center gap-2">
             <button
@@ -218,7 +234,13 @@ export default function WeekView() {
             <DroppableDay dateId={currentDateId} date={currentDate}>
               {dayBars.length > 0 ? (
                 dayBars.map((bar) => (
-                  <PlanningCard key={bar.dossier_id} bar={bar} onEdit={setEditingBar} onRemove={handleRemove} />
+                  <PlanningCard 
+                    key={bar.dossier_id} 
+                    bar={bar} 
+                    onEdit={setEditingBar} 
+                    onRemove={handleRemove}
+                    collaborateurs={collaborateurs} // ON PASSE LES COLLABS
+                  />
                 ))
               ) : (
                 <p className="text-center text-sm py-8 italic" style={{ color: "var(--text-muted)" }}>
@@ -229,14 +251,14 @@ export default function WeekView() {
           ) : null}
         </div>
 
-        {/* Drawer */}
+        {/* Unplanned Drawer */}
         <UnplannedDrawer
           unplanned={unplanned}
           open={drawerOpen}
           onToggle={() => setDrawerOpen((p) => !p)}
         />
 
-        {/* Drag overlay */}
+        {/* Drag Overlay */}
         <DragOverlay dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: "0.3" } } }) }}>
           {activeId ? (
             <div className="rotate-2 scale-105 text-white px-4 py-3 rounded-2xl font-bold text-xs shadow-2xl"
@@ -247,9 +269,13 @@ export default function WeekView() {
         </DragOverlay>
       </DndContext>
 
-      {/* Modal EN DEHORS du DndContext */}
+      {/* Edit Modal */}
       {editingBar && (
-        <WeekEditModal bar={editingBar} onSave={handleEditSave} onClose={() => setEditingBar(null)} />
+        <WeekEditModal 
+          bar={editingBar} 
+          onSave={handleEditSave} 
+          onClose={() => setEditingBar(null)} 
+        />
       )}
     </>
   );

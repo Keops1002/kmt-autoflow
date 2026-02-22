@@ -1,10 +1,16 @@
 "use client";
 
+// 👇 Les deux lignes pour tuer le cache et forcer l'affichage des photos
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AppContainer from "@/components/layout/AppContainer";
 import { supabase } from "@/lib/supabase";
 import { Loader2, ChevronLeft, Car, User, Wrench, BadgeEuro, Play, CheckCircle, X, Camera } from "lucide-react";
+
+// 👇 N'oublie pas que ton composant PhotoGallery doit bien être importé ici
 import PhotoGallery from "@/components/dossiers/PhotoGallery";
 
 interface DossierDetail {
@@ -261,17 +267,19 @@ export default function DossierDetailPage() {
           </div>
         </div>
 
-        {/* ── Card Photos ── */}
+        {/* 👇 LA SECTION PHOTOS EST ICI 👇 */}
         <div className="relative rounded-2xl bg-white/70 backdrop-blur-sm border border-white/80 shadow-sm overflow-hidden">
           <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl bg-gradient-to-b from-blue-400 via-indigo-500 to-violet-500" />
           <div className="pl-5 pr-4 py-4">
             <div className="flex items-center gap-2 mb-3">
               <Camera size={13} className="text-slate-400" />
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Photos</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Photos du véhicule</span>
             </div>
+            {/* L'appel à ton composant Galerie */}
             <PhotoGallery dossierId={dossier.id} />
           </div>
         </div>
+        {/* 👆 FIN DE LA SECTION PHOTOS 👆 */}
 
         {/* ── Boutons d'action ── */}
         {dossier.status === "pending" && (
