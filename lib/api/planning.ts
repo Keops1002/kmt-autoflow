@@ -40,6 +40,7 @@ export async function getPlanningData(weekOffset = 0) {
   const start    = isoDate(weekDays[0]);
   const end      = isoDate(weekDays[6]);
 
+  // 1. Entries de la semaine affichée (pour les bars du calendrier)
   const { data: entries, error: entriesError } = await supabase
     .from("planning_entries")
     .select(`
@@ -54,6 +55,17 @@ export async function getPlanningData(weekOffset = 0) {
 
   if (entriesError) console.error("getPlanningData entries error:", entriesError.message);
 
+  // 2. TOUS les dossier_id planifiés (toutes semaines) — FIX DU BUG
+  // Avant : on utilisait uniquement les entries de la semaine courante
+  // → un dossier planifié semaine 1 réapparaissait dans "À planifier" sur semaine 2
+  // Maintenant : on récupère tous les IDs planifiés sans filtre de date
+  const { data: allEntries, error: allEntriesError } = await supabase
+    .from("planning_entries")
+    .select("dossier_id");
+
+  if (allEntriesError) console.error("getPlanningData allEntries error:", allEntriesError.message);
+
+  // 3. Dossiers actifs (pending + in_progress)
   const { data: allDossiers, error: dossiersError } = await supabase
     .from("dossiers")
     .select("id, problem, status, estimated_price, vehicles(plate, brand, model, clients(name))")
@@ -61,8 +73,9 @@ export async function getPlanningData(weekOffset = 0) {
 
   if (dossiersError) console.error("getPlanningData dossiers error:", dossiersError.message);
 
-  const plannedIds = entries?.map((e) => e.dossier_id) || [];
-  const unplanned  = (allDossiers || []).filter((d) => !plannedIds.includes(d.id));
+  // Exclure TOUS les dossiers déjà planifiés, quelle que soit la semaine
+  const allPlannedIds = (allEntries || []).map((e) => e.dossier_id);
+  const unplanned     = (allDossiers || []).filter((d) => !allPlannedIds.includes(d.id));
 
   return {
     weekDays,
@@ -158,30 +171,30 @@ export async function getPlanningMonth(monthOffset = 0) {
 export interface PlanningBar {
   dossier_id: string;
   start_date: string;
-  end_date: string;
+  end_date:   string;
   dossiers: {
-    id: string;
-    problem: string;
-    status: string;
+    id:              string;
+    problem:         string;
+    status:          string;
     estimated_price?: number;
     vehicles: {
       plate?: string;
-      brand: string;
-      model: string;
+      brand:  string;
+      model:  string;
       clients?: { name: string } | null;
     } | null;
   };
 }
 
 export interface UnplannedDossier {
-  id: string;
-  problem: string;
-  status: string;
+  id:              string;
+  problem:         string;
+  status:          string;
   estimated_price?: number;
   vehicles?: {
     plate?: string;
-    brand: string;
-    model: string;
+    brand:  string;
+    model:  string;
     clients?: { name: string } | null;
   } | null;
 }

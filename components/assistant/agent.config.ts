@@ -10,7 +10,7 @@ export interface Message {
 export interface Field {
   key: string;
   label: string;
-  type: "text" | "textarea" | "select";
+  type: "text" | "textarea" | "select" | "client-picker";
   placeholder?: string;
   options?: string[];
 }
@@ -44,20 +44,20 @@ export const AGENTS: AgentConfig[] = [
     ],
   },
   {
-    key: "mail",
-    label: "Mail Client",
-    icon: Mail,
-    color: "#4f46e5",
-    colorLight: "rgba(79,70,229,0.12)",
-    description: "Rédige des emails professionnels à tes clients",
-    webhookEnvKey: "NEXT_PUBLIC_N8N_MAIL_WEBHOOK",
-    hasMedia: true,
-    fields: [
-      { key: "objet", label: "Objet de l'email", type: "text", placeholder: "Ex: Devis prêt, véhicule terminé..." },
-      { key: "client", label: "Nom du client", type: "text", placeholder: "Ex: M. Dupont" },
-      { key: "contexte", label: "Contexte", type: "textarea", placeholder: "Ex: La voiture est prête, total 350€..." },
-    ],
-  },
+  key: "mail",
+  label: "Mail Client",
+  icon: Mail,
+  color: "#4f46e5",
+  colorLight: "rgba(79,70,229,0.12)",
+  description: "Rédige des emails professionnels à tes clients",
+  webhookEnvKey: "NEXT_PUBLIC_N8N_MAIL_WEBHOOK",
+  hasMedia: true,
+  fields: [
+    { key: "objet",   label: "Objet de l'email", type: "text",          placeholder: "Ex: Devis prêt, véhicule terminé..." },
+    { key: "clients", label: "Destinataires",     type: "client-picker"                                                    },
+    { key: "contexte",label: "Contexte",          type: "textarea",      placeholder: "Ex: La voiture est prête, total 350€..." },
+  ],
+},
   {
     key: "sms",
     label: "SMS Client",

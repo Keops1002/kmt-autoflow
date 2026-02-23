@@ -3,52 +3,47 @@
 import { useEffect, useState } from "react";
 import AppContainer from "@/components/layout/AppContainer";
 import { supabase } from "@/lib/supabase";
-import { Loader2, Plus, Search, ListFilter, User, Phone, Mail, Car, MapPin, Edit3, Trash2, ChevronDown } from "lucide-react";
+import {
+  Loader2, Plus, Search, Phone, Mail,
+  Car, MapPin, Edit3, ChevronDown, SlidersHorizontal, User
+} from "lucide-react";
+import SwipeToDelete from "@/components/ui/SwipeToDelete";
 
 interface Vehicle {
-  id: string;
-  brand: string;
-  model: string;
-  plate: string | null;
-  vin: string | null;
+  id: string; brand: string; model: string;
+  plate: string | null; vin: string | null;
 }
 
 interface Client {
-  id: string;
-  created_at: string;
-  name: string;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-  notes: string | null;
+  id: string; created_at: string; name: string;
+  phone: string | null; email: string | null;
+  address: string | null; notes: string | null;
   vehicles?: Vehicle[];
 }
 
-// ----------------------------------------------------------------------
-// COMPOSANT MODALE (Création / Édition Client)
-// ----------------------------------------------------------------------
+// ─── MODALE ───────────────────────────────────────────────────────────────────
 
-function ClientModal({ 
-  isOpen, onClose, onSaved, clientToEdit 
-}: { 
+function ClientModal({ isOpen, onClose, onSaved, clientToEdit }: {
   isOpen: boolean; onClose: () => void; onSaved: () => void; clientToEdit?: Client | null;
 }) {
-  const [name, setName]       = useState(clientToEdit?.name || "");
-  const [phone, setPhone]     = useState(clientToEdit?.phone || "");
-  const [email, setEmail]     = useState(clientToEdit?.email || "");
-  const [address, setAddress] = useState(clientToEdit?.address || "");
-  const [notes, setNotes]     = useState(clientToEdit?.notes || "");
+  const [name, setName]       = useState("");
+  const [phone, setPhone]     = useState("");
+  const [email, setEmail]     = useState("");
+  const [address, setAddress] = useState("");
+  const [notes, setNotes]     = useState("");
   const [saving, setSaving]   = useState(false);
 
+  // Reset des champs à chaque ouverture avec les bonnes données
   useEffect(() => {
-    if (isOpen) {
-      setName(clientToEdit?.name || "");
-      setPhone(clientToEdit?.phone || "");
-      setEmail(clientToEdit?.email || "");
-      setAddress(clientToEdit?.address || "");
-      setNotes(clientToEdit?.notes || "");
-    }
-  }, [isOpen, clientToEdit]);
+    if (!isOpen) return;
+    setName(clientToEdit?.name ?? "");
+    setPhone(clientToEdit?.phone ?? "");
+    setEmail(clientToEdit?.email ?? "");
+    setAddress(clientToEdit?.address ?? "");
+    setNotes(clientToEdit?.notes ?? "");
+  // clientToEdit?.id garantit le re-déclenchement même si l'objet change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, clientToEdit?.id]);
 
   if (!isOpen) return null;
 
@@ -56,71 +51,91 @@ function ClientModal({
     if (!name.trim()) return alert("Le nom est obligatoire");
     setSaving(true);
     const payload = {
-      name: name.trim(),
-      phone: phone.trim() || null,
-      email: email.trim() || null,
+      name:    name.trim(),
+      phone:   phone.trim()   || null,
+      email:   email.trim()   || null,
       address: address.trim() || null,
-      notes: notes.trim() || null,
+      notes:   notes.trim()   || null,
     };
-
     if (clientToEdit) {
-      await supabase.from("clients").update(payload).eq("id", clientToEdit.id);
+      const { error } = await supabase.from("clients").update(payload).eq("id", clientToEdit.id);
+      if (error) { alert(`Erreur : ${error.message}`); setSaving(false); return; }
     } else {
-      await supabase.from("clients").insert(payload);
+      const { error } = await supabase.from("clients").insert(payload);
+      if (error) { alert(`Erreur : ${error.message}`); setSaving(false); return; }
     }
-    
     setSaving(false);
     onSaved();
     onClose();
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-3xl p-6 space-y-4" style={{ background: "var(--card-bg)" }}>
-        <h2 className="text-xl font-black" style={{ color: "var(--text-primary)" }}>
-          {clientToEdit ? "Modifier client" : "Nouveau client"}
+    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/50 backdrop-blur-sm">
+      {/* Backdrop cliquable */}
+      <div className="absolute inset-0" onClick={onClose} />
+
+      {/* Sheet — pb-20 pour passer au dessus de la BottomNav (64px) */}
+      <div
+        className="relative w-full rounded-t-3xl p-6 space-y-4 overflow-y-auto"
+        style={{
+          background: "var(--card-bg)",
+          paddingBottom: "88px", // au-dessus de la BottomNav
+          maxHeight:     "90vh",
+        }}>
+
+        {/* Handle */}
+        <div className="flex justify-center -mt-2 mb-2">
+          <div className="w-10 h-1 rounded-full" style={{ background: "var(--card-border)" }} />
+        </div>
+
+        <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>
+          {clientToEdit ? "Modifier le client" : "Nouveau client"}
         </h2>
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-muted)" }}>Nom *</label>
-            <input value={name} onChange={e => setName(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border font-bold focus:outline-none"
+
+        <div className="space-y-2.5">
+          {[
+            { label: "Nom *",     value: name,    set: setName,    placeholder: "Jean Dupont",      type: "text"  },
+            { label: "Téléphone", value: phone,   set: setPhone,   placeholder: "06 12 34 56 78",   type: "tel"   },
+            { label: "Email",     value: email,   set: setEmail,   placeholder: "jean@email.com",   type: "email" },
+            { label: "Adresse",   value: address, set: setAddress, placeholder: "123 rue de Paris", type: "text"  },
+          ].map((f) => (
+            <div key={f.label} className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-wider px-1"
+                style={{ color: "var(--text-muted)" }}>{f.label}</label>
+              <input
+                type={f.type}
+                value={f.value}
+                onChange={(e) => f.set(e.target.value)}
+                placeholder={f.placeholder}
+                className="w-full px-3 py-2.5 rounded-xl border text-sm font-medium outline-none"
+                style={{ background: "var(--card-bg-active)", borderColor: "var(--card-border)", color: "var(--text-primary)" }}
+              />
+            </div>
+          ))}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-wider px-1"
+              style={{ color: "var(--text-muted)" }}>Notes internes</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              placeholder="Client habituel..."
+              className="w-full px-3 py-2.5 rounded-xl border text-sm font-medium outline-none resize-none"
               style={{ background: "var(--card-bg-active)", borderColor: "var(--card-border)", color: "var(--text-primary)" }}
-              placeholder="Jean Dupont" />
-          </div>
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-muted)" }}>Téléphone</label>
-            <input value={phone} onChange={e => setPhone(e.target.value)} type="tel"
-              className="w-full px-4 py-3 rounded-2xl border font-medium focus:outline-none"
-              style={{ background: "var(--card-bg-active)", borderColor: "var(--card-border)", color: "var(--text-primary)" }}
-              placeholder="06 12 34 56 78" />
-          </div>
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-muted)" }}>Email</label>
-            <input value={email} onChange={e => setEmail(e.target.value)} type="email"
-              className="w-full px-4 py-3 rounded-2xl border font-medium focus:outline-none"
-              style={{ background: "var(--card-bg-active)", borderColor: "var(--card-border)", color: "var(--text-primary)" }}
-              placeholder="jean@email.com" />
-          </div>
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-muted)" }}>Adresse</label>
-            <input value={address} onChange={e => setAddress(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border font-medium focus:outline-none"
-              style={{ background: "var(--card-bg-active)", borderColor: "var(--card-border)", color: "var(--text-primary)" }}
-              placeholder="123 rue de Paris" />
-          </div>
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-muted)" }}>Notes internes</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-              className="w-full px-4 py-3 rounded-2xl border font-medium focus:outline-none resize-none"
-              style={{ background: "var(--card-bg-active)", borderColor: "var(--card-border)", color: "var(--text-primary)" }}
-              placeholder="Client habituel..." />
+            />
           </div>
         </div>
-        <div className="flex gap-3 pt-2">
-          <button onClick={onClose} className="flex-1 py-3 rounded-2xl font-bold" style={{ background: "var(--card-bg-active)", color: "var(--text-secondary)" }}>Annuler</button>
-          <button onClick={handleSave} disabled={saving} className="flex-1 py-3 rounded-2xl text-white font-bold flex items-center justify-center gap-2" style={{ background: "var(--accent)" }}>
-            {saving && <Loader2 size={16} className="animate-spin" />} Enregistrer
+
+        <div className="flex gap-3 pt-1">
+          <button onClick={onClose}
+            className="flex-1 py-3 rounded-xl text-sm font-black border transition-all active:scale-[0.97]"
+            style={{ background: "var(--card-bg-active)", borderColor: "var(--card-border)", color: "var(--text-secondary)" }}>
+            Annuler
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 py-3 rounded-xl text-sm font-black text-white flex items-center justify-center gap-2 transition-all active:scale-[0.97] disabled:opacity-50"
+            style={{ background: "var(--accent)" }}>
+            {saving ? <><Loader2 size={14} className="animate-spin" /> Enregistrement...</> : "Enregistrer"}
           </button>
         </div>
       </div>
@@ -128,108 +143,142 @@ function ClientModal({
   );
 }
 
-// ----------------------------------------------------------------------
-// COMPOSANT CARTE CLIENT
-// ----------------------------------------------------------------------
+// ─── COULEURS ─────────────────────────────────────────────────────────────────
 
-function ClientCard({ client, onEdit, onDelete }: { 
-  client: Client; onEdit: () => void; onDelete: () => void;
-}) {
+const AVATAR_COLORS = [
+  { bg: "rgba(99,102,241,0.15)",  text: "#6366f1" },
+  { bg: "rgba(16,185,129,0.15)",  text: "#10b981" },
+  { bg: "rgba(245,158,11,0.15)",  text: "#f59e0b" },
+  { bg: "rgba(239,68,68,0.15)",   text: "#ef4444" },
+  { bg: "rgba(59,130,246,0.15)",  text: "#3b82f6" },
+  { bg: "rgba(168,85,247,0.15)",  text: "#a855f7" },
+];
+function getColor(name: string) {
+  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+}
+
+// ─── CLIENT CARD ──────────────────────────────────────────────────────────────
+
+function ClientCard({ client, onEdit }: { client: Client; onEdit: () => void }) {
   const [expanded, setExpanded] = useState(false);
+  const color = getColor(client.name);
+  const nbV   = client.vehicles?.length || 0;
 
   return (
-    <div 
-      onClick={() => setExpanded(!expanded)}
-      className="rounded-2xl border overflow-hidden transition-all duration-300 cursor-pointer"
-      style={{ background: expanded ? "var(--card-bg-active)" : "var(--card-bg)", borderColor: "var(--card-border)" }}
-    >
-      <div className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center font-black text-lg" style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
-              {client.name.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <p className="font-black leading-tight" style={{ color: "var(--text-primary)" }}>{client.name}</p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <p className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
-                  {client.vehicles?.length || 0} véhicule{(client.vehicles?.length || 0) > 1 ? "s" : ""}
-                </p>
-                <span style={{ color: "var(--text-muted)", opacity: 0.5 }}>·</span>
-                <p className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>
-                  {new Date(client.created_at).toLocaleDateString("fr-FR")}
-                </p>
-              </div>
-            </div>
+    <div
+      onClick={() => setExpanded((p) => !p)}
+      className="cursor-pointer"
+      style={{
+        background:   expanded ? "var(--card-bg-active)" : "var(--card-bg)",
+        border:       "1px solid var(--card-border)",
+        borderRadius: "16px",
+      }}>
+
+      {/* Row principal */}
+      <div className="flex items-center gap-3 px-4 py-3.5">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black text-base"
+          style={{ background: color.bg, color: color.text }}>
+          {client.name.charAt(0).toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-black truncate" style={{ color: "var(--text-primary)" }}>
+            {client.name}
+          </p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+              style={{ background: color.bg, color: color.text }}>
+              {nbV} véhicule{nbV > 1 ? "s" : ""}
+            </span>
+            {client.phone && (
+              <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                · {client.phone}
+              </span>
+            )}
           </div>
-          <ChevronDown size={16} className={`transition-transform duration-300 ${expanded ? "rotate-180" : ""}`} style={{ color: "var(--text-muted)" }} />
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+            {new Date(client.created_at).toLocaleDateString("fr-FR")}
+          </span>
+          <ChevronDown size={14} style={{
+            color: "var(--text-muted)",
+            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.2s",
+          }} />
         </div>
       </div>
 
-      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"}`}>
-        <div className="px-4 pb-4 space-y-4" onClick={e => e.stopPropagation()}>
+      {/* Contenu expandé */}
+      <div className={`overflow-hidden transition-all duration-300 ${
+        expanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
+      }`}>
+        <div className="px-4 pb-4 space-y-3" onClick={(e) => e.stopPropagation()}>
           <div className="h-px" style={{ background: "var(--card-border)" }} />
-          
-          <div className="grid grid-cols-2 gap-3">
+
+          <div className="flex flex-wrap gap-2">
             {client.phone && (
-              <a href={`tel:${client.phone}`} className="flex items-center gap-2 p-3 rounded-xl border active:scale-95 transition-all" style={{ background: "var(--card-bg-active)", borderColor: "var(--card-border)" }}>
-                <Phone size={14} style={{ color: "var(--text-muted)" }} />
-                <span className="text-xs font-bold" style={{ color: "var(--text-primary)" }}>{client.phone}</span>
+              <a href={`tel:${client.phone}`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold active:scale-95 transition-all"
+                style={{ background: "var(--card-bg-active)", borderColor: "var(--card-border)", color: "var(--text-primary)" }}>
+                <Phone size={11} style={{ color: "var(--accent)" }} /> {client.phone}
               </a>
             )}
             {client.email && (
-              <a href={`mailto:${client.email}`} className="flex items-center gap-2 p-3 rounded-xl border active:scale-95 transition-all" style={{ background: "var(--card-bg-active)", borderColor: "var(--card-border)" }}>
-                <Mail size={14} style={{ color: "var(--text-muted)" }} />
-                <span className="text-xs font-bold truncate" style={{ color: "var(--text-primary)" }}>{client.email}</span>
+              <a href={`mailto:${client.email}`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold active:scale-95 transition-all"
+                style={{ background: "var(--card-bg-active)", borderColor: "var(--card-border)", color: "var(--text-primary)" }}>
+                <Mail size={11} style={{ color: "var(--accent)" }} />
+                <span className="truncate max-w-[120px]">{client.email}</span>
               </a>
             )}
             {client.address && (
-              <div className="col-span-2 flex items-center gap-2 p-3 rounded-xl border" style={{ background: "var(--card-bg-active)", borderColor: "var(--card-border)" }}>
-                <MapPin size={14} className="shrink-0" style={{ color: "var(--text-muted)" }} />
-                <span className="text-xs font-bold leading-tight" style={{ color: "var(--text-primary)" }}>{client.address}</span>
-              </div>
-            )}
-            {client.notes && (
-              <div className="col-span-2 p-3 rounded-xl border" style={{ background: "var(--accent-light)", borderColor: "var(--accent)", opacity: 0.8 }}>
-                <p className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: "var(--accent)" }}>Notes internes</p>
-                <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>{client.notes}</p>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold"
+                style={{ background: "var(--card-bg-active)", borderColor: "var(--card-border)", color: "var(--text-primary)" }}>
+                <MapPin size={11} style={{ color: "var(--accent)" }} /> {client.address}
               </div>
             )}
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Véhicules ({client.vehicles?.length || 0})</p>
+          {client.notes && (
+            <div className="px-3 py-2.5 rounded-xl"
+              style={{ background: "var(--accent-light)", borderLeft: "3px solid var(--accent)" }}>
+              <p className="text-[9px] font-black uppercase tracking-wider mb-1" style={{ color: "var(--accent)" }}>Note interne</p>
+              <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>{client.notes}</p>
             </div>
-            {client.vehicles?.length === 0 ? (
-              <p className="text-xs italic p-3 rounded-xl border" style={{ color: "var(--text-muted)", background: "var(--card-bg-active)", borderColor: "var(--card-border)" }}>Aucun véhicule enregistré.</p>
-            ) : (
-              <div className="space-y-2">
-                {client.vehicles?.map(v => (
-                  <div key={v.id} className="flex items-center justify-between p-3 rounded-xl border" style={{ background: "var(--card-bg-active)", borderColor: "var(--card-border)" }}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg shadow-sm flex items-center justify-center" style={{ background: "var(--card-bg)" }}>
-                        <Car size={14} style={{ color: "var(--text-secondary)" }} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-black leading-none mb-1" style={{ color: "var(--text-primary)" }}>{v.brand} {v.model}</p>
-                        {v.plate && <span className="text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest" style={{ background: "var(--card-bg)", color: "var(--text-muted)" }}>{v.plate}</span>}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
 
-          <div className="h-px" style={{ background: "var(--card-border)" }} />
-          
-          <div className="flex gap-2">
-            <button onClick={onEdit} className="flex-1 py-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all" style={{ borderColor: "var(--card-border)", color: "var(--text-secondary)" }}>
-              <Edit3 size={14} /> Modifier
-            </button>
-            <button onClick={onDelete} className="flex-1 py-2.5 rounded-xl bg-red-50/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all">
-              <Trash2 size={14} /> Supprimer
+          {nbV > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[9px] font-black uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                Véhicules ({nbV})
+              </p>
+              {client.vehicles?.map((v) => (
+                <div key={v.id} className="flex items-center gap-3 px-3 py-2 rounded-xl border"
+                  style={{ background: "var(--card-bg-active)", borderColor: "var(--card-border)" }}>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "var(--card-bg)" }}>
+                    <Car size={13} style={{ color: "var(--accent)" }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black truncate" style={{ color: "var(--text-primary)" }}>
+                      {v.brand} {v.model}
+                    </p>
+                    {v.plate && (
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest"
+                        style={{ background: "var(--card-bg)", color: "var(--text-muted)" }}>
+                        {v.plate}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="pt-1">
+            <button onClick={onEdit}
+              className="w-full py-2.5 rounded-xl border text-xs font-black flex items-center justify-center gap-1.5 transition-all active:scale-95"
+              style={{ borderColor: "var(--card-border)", color: "var(--text-secondary)", background: "var(--card-bg-active)" }}>
+              <Edit3 size={12} /> Modifier
             </button>
           </div>
         </div>
@@ -238,157 +287,175 @@ function ClientCard({ client, onEdit, onDelete }: {
   );
 }
 
-// ----------------------------------------------------------------------
-// PAGE PRINCIPALE
-// ----------------------------------------------------------------------
+// ─── PAGE PRINCIPALE ──────────────────────────────────────────────────────────
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Modales
+  const [clients, setClients]             = useState<Client[]>([]);
+  const [loading, setLoading]             = useState(true);
   const [showClientModal, setShowClientModal] = useState(false);
-  const [editingClient, setEditingClient]     = useState<Client | null>(null);
-
-  // Filtre et Tri
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortOrder, setSortOrder]     = useState("newest"); // newest, oldest, az, za
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [searchQuery, setSearchQuery]     = useState("");
+  const [sortOrder, setSortOrder]         = useState("newest");
+  const [showSort, setShowSort]           = useState(false);
 
   useEffect(() => { fetchClients(); }, []);
 
   async function fetchClients() {
     setLoading(true);
     const { data, error } = await supabase
-      .from("clients")
-      .select(`*, vehicles (*)`)
+      .from("clients").select("*, vehicles (*)")
       .order("created_at", { ascending: false });
-    
     if (error) console.error(error);
     else setClients(data as Client[]);
     setLoading(false);
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Supprimer ce client et tous ses véhicules ?")) return;
-    await supabase.from("clients").delete().eq("id", id);
-    setClients(p => p.filter(c => c.id !== id));
+    const { error } = await supabase.from("clients").delete().eq("id", id);
+    if (error) { alert(`Erreur : ${error.message}`); return; }
+    setClients((p) => p.filter((c) => c.id !== id));
   }
 
-  // LOGIQUE DE RECHERCHE ET DE TRI
-  const displayedClients = clients
+  const SORT_LABELS: Record<string, string> = {
+    newest: "Récents", oldest: "Anciens", az: "A → Z", za: "Z → A",
+  };
+
+  const displayed = clients
     .filter((c) => {
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
-      const matchName   = c.name.toLowerCase().includes(q);
-      const matchPhone  = c.phone?.toLowerCase().includes(q);
-      const matchEmail  = c.email?.toLowerCase().includes(q);
-      const matchVehicle = c.vehicles?.some(v => 
-        v.plate?.toLowerCase().includes(q) || 
-        v.brand.toLowerCase().includes(q) ||
-        v.model.toLowerCase().includes(q)
+      return (
+        c.name.toLowerCase().includes(q) ||
+        c.phone?.toLowerCase().includes(q) ||
+        c.email?.toLowerCase().includes(q) ||
+        c.vehicles?.some((v) =>
+          v.plate?.toLowerCase().includes(q) ||
+          v.brand.toLowerCase().includes(q) ||
+          v.model.toLowerCase().includes(q)
+        )
       );
-      return matchName || matchPhone || matchEmail || matchVehicle;
     })
     .sort((a, b) => {
       if (sortOrder === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       if (sortOrder === "oldest") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      if (sortOrder === "az") return a.name.localeCompare(b.name);
-      if (sortOrder === "za") return b.name.localeCompare(a.name);
+      if (sortOrder === "az")     return a.name.localeCompare(b.name);
+      if (sortOrder === "za")     return b.name.localeCompare(a.name);
       return 0;
     });
 
   return (
     <AppContainer>
-      <div className="px-4 pt-12 pb-40 space-y-4">
-        
+      <div className="px-4 pt-12 pb-32 space-y-4">
+
         {/* Header */}
-        <div className="flex items-center justify-between px-2">
-          <h1 className="text-3xl font-black" style={{ color: "var(--text-primary)" }}>Clients</h1>
-          <button 
-            onClick={() => { setEditingClient(null); setShowClientModal(true); }}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white shadow-md active:scale-95 transition-all"
-            style={{ background: "var(--accent)" }}
-          >
-            <Plus size={20} />
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Clients</h1>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              {clients.length} client{clients.length > 1 ? "s" : ""} enregistré{clients.length > 1 ? "s" : ""}
+            </p>
+          </div>
+          <button onClick={() => { setEditingClient(null); setShowClientModal(true); }}
+            className="w-10 h-10 rounded-2xl flex items-center justify-center text-white transition-all active:scale-90"
+            style={{ background: "var(--accent)" }}>
+            <Plus size={18} />
           </button>
         </div>
 
-        {/* 🎛️ BARRE DE RECHERCHE ET DE TRI */}
-        <div className="flex flex-col gap-3 px-2 mb-2">
-          
-          {/* Barre de recherche */}
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2" size={16} style={{ color: "var(--text-muted)" }} />
-            <input 
-              type="text"
-              placeholder="Rechercher nom, plaque, tel..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 rounded-2xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all shadow-sm"
-              style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-primary)" }}
-            />
+        {/* Recherche + tri */}
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
+              <input type="text" placeholder="Nom, plaque, tel..."
+                value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl border text-sm font-medium outline-none"
+                style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-primary)" }} />
+            </div>
+            <div className="relative">
+              <button onClick={() => setShowSort((p) => !p)}
+                className="h-full px-3 rounded-xl border flex items-center gap-1.5 transition-all active:scale-95"
+                style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}>
+                <SlidersHorizontal size={13} style={{ color: "var(--accent)" }} />
+                <span className="text-xs font-black" style={{ color: "var(--text-primary)" }}>
+                  {SORT_LABELS[sortOrder]}
+                </span>
+              </button>
+              {showSort && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowSort(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-20 rounded-2xl border overflow-hidden shadow-xl"
+                    style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", minWidth: "140px" }}>
+                    {Object.entries(SORT_LABELS).map(([key, label]) => (
+                      <button key={key} onClick={() => { setSortOrder(key); setShowSort(false); }}
+                        className="w-full px-4 py-2.5 text-left text-xs font-black transition-all"
+                        style={{
+                          color:      sortOrder === key ? "var(--accent)" : "var(--text-primary)",
+                          background: sortOrder === key ? "var(--accent-light)" : "transparent",
+                        }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-          
-          {/* Sélecteur de tri */}
-          <div className="flex items-center gap-2 px-1">
-            <ListFilter size={14} style={{ color: "var(--text-muted)" }} />
-            <select 
-              value={sortOrder} 
-              onChange={(e) => setSortOrder(e.target.value)}
-              className="text-xs font-bold bg-transparent border-none focus:ring-0 cursor-pointer outline-none"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              <option value="newest">Ajouts récents</option>
-              <option value="oldest">Anciens clients</option>
-              <option value="az">Nom (A à Z)</option>
-              <option value="za">Nom (Z à A)</option>
-            </select>
-            <span className="ml-auto text-xs font-bold" style={{ color: "var(--text-muted)" }}>
-              {displayedClients.length} client{displayedClients.length > 1 ? "s" : ""}
-            </span>
-          </div>
+          {searchQuery && (
+            <p className="text-[11px] px-1" style={{ color: "var(--text-muted)" }}>
+              {displayed.length} résultat{displayed.length > 1 ? "s" : ""} pour "{searchQuery}"
+            </p>
+          )}
         </div>
 
-        {/* Chargement */}
-        {loading && (
-          <div className="flex justify-center py-10">
-            <Loader2 className="animate-spin" size={24} style={{ color: "var(--text-muted)" }} />
-          </div>
-        )}
-
-        {/* État vide */}
-        {!loading && displayedClients.length === 0 && (
-          <div className="flex flex-col items-center justify-center text-center py-12 px-6 rounded-3xl border border-dashed" style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}>
-            <User size={32} className="mb-3" style={{ color: "var(--card-border)" }} />
-            <p className="text-sm font-bold" style={{ color: "var(--text-secondary)" }}>Aucun client trouvé</p>
-            {searchQuery ? (
-              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Essayez une autre recherche.</p>
-            ) : (
-              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Ajoutez votre premier client en cliquant sur le +</p>
-            )}
-          </div>
+        {/* Hint */}
+        {!loading && clients.length > 0 && (
+          <p className="text-[10px] text-center" style={{ color: "var(--text-muted)" }}>
+            ← Swipe gauche pour supprimer
+          </p>
         )}
 
         {/* Liste */}
-        <div className="space-y-3">
-          {displayedClients.map(client => (
-            <ClientCard 
-              key={client.id} 
-              client={client} 
-              onEdit={() => { setEditingClient(client); setShowClientModal(true); }}
-              onDelete={() => handleDelete(client.id)}
-            />
-          ))}
-        </div>
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <Loader2 className="animate-spin" size={24} style={{ color: "var(--accent)" }} />
+          </div>
+        ) : displayed.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: "var(--card-bg)" }}>
+              <User size={24} style={{ color: "var(--text-muted)" }} />
+            </div>
+            <p className="text-sm font-black" style={{ color: "var(--text-muted)" }}>
+              {searchQuery ? "Aucun client trouvé" : "Aucun client"}
+            </p>
+            {!searchQuery && (
+              <button onClick={() => { setEditingClient(null); setShowClientModal(true); }}
+                className="px-4 py-2 rounded-xl text-xs font-black text-white transition-all active:scale-95"
+                style={{ background: "var(--accent)" }}>
+                + Ajouter un client
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {displayed.map((client) => (
+              <SwipeToDelete key={client.id} onDelete={() => handleDelete(client.id)}>
+                <ClientCard
+                  client={client}
+                  onEdit={() => { setEditingClient(client); setShowClientModal(true); }}
+                />
+              </SwipeToDelete>
+            ))}
+          </div>
+        )}
       </div>
 
-      <ClientModal 
-        isOpen={showClientModal} 
-        onClose={() => setShowClientModal(false)} 
-        onSaved={fetchClients} 
-        clientToEdit={editingClient} 
+      <ClientModal
+        isOpen={showClientModal}
+        onClose={() => setShowClientModal(false)}
+        onSaved={fetchClients}
+        clientToEdit={editingClient}
       />
-      
     </AppContainer>
   );
 }
