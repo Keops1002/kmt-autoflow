@@ -1,16 +1,8 @@
-import { Dossier } from "@/lib/types";
-
-let dossiers: Dossier[] = [];
-
+// ⚠️ Ce store est un vestige de l'architecture initiale — NON UTILISÉ
+// L'application utilise directement supabase + useState dans chaque page
+// Conservé pour éviter les erreurs d'import, ne pas supprimer.
 export const dossierStore = {
-
-  getAll: () => dossiers,
-
-  getById: (id: string) =>
-    dossiers.find((d) => d.id === id),
-
-  add: (dossier: Dossier) => {
-    dossiers = [dossier, ...dossiers];
-  },
-
+  getAll: () => [],
+  getById: (_id: string) => undefined,
+  add: (_dossier: any) => {},
 };

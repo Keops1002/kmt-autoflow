@@ -26,23 +26,27 @@ export default function AppContainer({ children }: { children: React.ReactNode }
 
   return (
     <div
-      className="flex justify-center min-h-screen"
-      style={{ background: "var(--bg-base)" }}
+      className="flex justify-center"
+      style={{
+        background: `linear-gradient(to bottom, var(--bg-from), var(--bg-via), var(--bg-to))`,
+        backgroundAttachment: "fixed",
+        minHeight: "100dvh",
+      }}
     >
+      {/* Colonne centrale max-w-md, positionnée en relative pour ancrer la BottomNav */}
       <div
-        className="w-full max-w-md min-h-screen relative flex flex-col"
-        style={{
-          background: `linear-gradient(to bottom, var(--bg-from), var(--bg-via), var(--bg-to))`
-        }}
+        className="w-full max-w-md relative flex flex-col"
+        style={{ minHeight: "100dvh" }}
       >
         <TopBar currentTheme={theme} onThemeChange={applyTheme} />
-        <div className="flex-1 pb-24">
+
+        <div className="flex-1 pb-20">
           {children}
         </div>
-        <div className="fixed bottom-0 left-0 right-0 flex justify-center z-50">
-          <div className="w-full max-w-md">
-            <BottomNav />
-          </div>
+
+        {/* BottomNav sticky en bas de la colonne, pas de tout l'écran */}
+        <div className="sticky bottom-0 z-50">
+          <BottomNav />
         </div>
       </div>
     </div>

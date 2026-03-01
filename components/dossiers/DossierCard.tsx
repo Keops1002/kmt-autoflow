@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import {
-  Loader2, Trash2, ChevronDown, Play, CheckCircle,
+  Loader2, ChevronDown, Play, CheckCircle,
   User, Car, Wrench, BadgeEuro, FileText, Camera
 } from "lucide-react";
 
@@ -13,15 +12,16 @@ import DevisCard        from "@/components/devis/DevisCard";
 import PhotoGallery     from "@/components/dossiers/PhotoGallery";
 import PaymentModal     from "./PaymentModal";
 import TaskSection      from "./TaskSection";
+import SwipeToDelete    from "@/components/ui/SwipeToDelete";
 
 import type { Dossier } from "./dossier.types";
 import type { Devis }   from "@/components/devis/devis.types";
 
 function statusStyle(status: string) {
   switch (status) {
-    case "done":        return { badge: "bg-emerald-100 text-emerald-700", label: "Terminé"    };
-    case "in_progress": return { badge: "bg-blue-100 text-blue-700",       label: "En cours"   };
-    default:            return { badge: "bg-amber-100 text-amber-700",     label: "En attente" };
+    case "done":         return { badge: "bg-emerald-100 text-emerald-700", label: "Terminé"    };
+    case "in_progress":  return { badge: "bg-blue-100 text-blue-700",       label: "En cours"   };
+    default:             return { badge: "bg-amber-100 text-amber-700",     label: "En attente" };
   }
 }
 
@@ -31,29 +31,17 @@ interface Props {
   onUpdate: (id: string, patch: Partial<Dossier>) => void;
 }
 
-const SWIPE_THRESHOLD = 80;
-const REVEAL_WIDTH    = 90;
-
 export default function DossierCard({ dossier, onDelete, onUpdate }: Props) {
   const [expanded, setExpanded]         = useState(false);
   const [updating, setUpdating]         = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [showDevis, setShowDevis]       = useState(false);
   const [deleting, setDeleting]         = useState(false);
-  const [revealed, setRevealed]         = useState(false);
 
   const [devisList, setDevisList]   = useState<Devis[]>(dossier.devis || []);
   const [devisOpen, setDevisOpen]   = useState(true);
   const [tachesOpen, setTachesOpen] = useState(true);
   const [photosOpen, setPhotosOpen] = useState(false);
-
-  const dragX = useMotionValue(0);
-
-  // Zone rouge : s'allume progressivement
-  const bgOpacity   = useTransform(dragX, [-REVEAL_WIDTH, -20], [1, 0]);
-  // Icône : grossit et apparaît
-  const iconScale   = useTransform(dragX, [-REVEAL_WIDTH, -30], [1.15, 0.6]);
-  const iconOpacity = useTransform(dragX, [-REVEAL_WIDTH, -30], [1, 0]);
 
   const st      = statusStyle(dossier.status);
   const vehicle = dossier.vehicles;
@@ -62,26 +50,13 @@ export default function DossierCard({ dossier, onDelete, onUpdate }: Props) {
   const tasksDone  = tasks.filter((t) => t.is_done).length;
   const tasksTotal = tasks.length;
 
-  function snapOpen()  { animate(dragX, -REVEAL_WIDTH, { type: "spring", stiffness: 400, damping: 35 }); setRevealed(true);  }
-  function snapClose() { animate(dragX, 0,             { type: "spring", stiffness: 400, damping: 35 }); setRevealed(false); }
-
-  function handleDragEnd(_: any, info: any) {
-    const x = info.offset.x;
-    if (x < -SWIPE_THRESHOLD) {
-      snapOpen();
-    } else {
-      snapClose();
-    }
-  }
-
   async function handleDelete() {
-    snapClose();
     setDeleting(true);
     try {
-      const { data: devisList } = await supabase
+      const { data: devisData } = await supabase
         .from("devis").select("id").eq("dossier_id", dossier.id);
-      if (devisList && devisList.length > 0) {
-        const ids = devisList.map((d) => d.id);
+      if (devisData && devisData.length > 0) {
+        const ids = devisData.map((d) => d.id);
         await supabase.from("devis_lignes").delete().in("devis_id", ids);
         await supabase.from("devis").delete().in("id", ids);
       }
@@ -93,7 +68,6 @@ export default function DossierCard({ dossier, onDelete, onUpdate }: Props) {
       onDelete(dossier.id);
     } catch (e: any) {
       alert(`Erreur : ${e.message}`);
-    } finally {
       setDeleting(false);
     }
   }
@@ -128,48 +102,16 @@ export default function DossierCard({ dossier, onDelete, onUpdate }: Props) {
 
   return (
     <>
-      <div className="relative mb-3" style={{ borderRadius: "16px", overflow: "hidden" }}>
-
-        {/* ── Zone rouge derrière ── */}
-        <motion.div
-          className="absolute inset-0 flex items-center justify-end"
-          style={{ background: "rgb(220,38,38)", opacity: bgOpacity, borderRadius: "16px" }}
-        >
-          <motion.button
-            onClick={handleDelete}
-            disabled={deleting}
-            className="flex flex-col items-center justify-center gap-1 text-white h-full px-7"
-            style={{ scale: iconScale, opacity: iconOpacity }}>
-            {deleting
-              ? <Loader2 size={22} className="animate-spin" />
-              : <Trash2 size={22} />
-            }
-            <span className="text-[9px] font-black uppercase tracking-wider">
-              {deleting ? "..." : "Supprimer"}
-            </span>
-          </motion.button>
-        </motion.div>
-
-        {/* ── Carte draggable ── */}
-        <motion.div
-          drag="x"
-          dragConstraints={{ left: -REVEAL_WIDTH, right: 0 }}
-          dragElastic={{ left: 0.05, right: 0 }}
-          onDragEnd={handleDragEnd}
-          style={{
-            x: dragX,
-            background:  expanded ? "var(--card-bg-active)" : "var(--card-bg)",
-            borderColor: "var(--card-border)",
-            borderRadius: "16px",
-            border: "1px solid var(--card-border)",
-            position: "relative",
-            zIndex: 10,
-          }}
-          onClick={() => {
-            if (revealed) { snapClose(); return; }
-            setExpanded((p) => !p);
-          }}
+      <SwipeToDelete onDelete={handleDelete}>
+        <div
+          onClick={() => setExpanded((p) => !p)}
           className="cursor-pointer"
+          style={{
+            background:   expanded ? "var(--card-bg-active)" : "var(--card-bg)",
+            border:       "1px solid var(--card-border)",
+            borderRadius: "16px",
+            position:     "relative",
+          }}
         >
           {/* Barre gauche dégradée */}
           <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl"
@@ -370,8 +312,8 @@ export default function DossierCard({ dossier, onDelete, onUpdate }: Props) {
               )}
             </div>
           </div>
-        </motion.div>
-      </div>
+        </div>
+      </SwipeToDelete>
 
       {showPayModal && <PaymentModal estimatedPrice={dossier.estimated_price} onConfirm={handlePaymentConfirm} onClose={() => setShowPayModal(false)} />}
       {showDevis    && <DevisBottomSheet dossierId={dossier.id} clientName={client?.name || "Client"} onClose={() => setShowDevis(false)} onCreated={reloadDevis} />}
